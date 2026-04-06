@@ -1,10 +1,16 @@
 # Toss
 
+[English](README.md) | [中文](README_CN.md)
+
 **Toss** is a command-line tool for sharing documents between AI agent tool users (Claude Code, Codex, Cursor, etc.). Instead of manually transferring files through chat apps, just `toss push` and `toss pull`.
 
 ```
 # Send a file to your collaborator
 toss push report.md xiaoming -m "please review"
+
+# Or use interactive mode - just type toss push
+toss push
+# → Select files → Pick recipient → Add message → Done!
 
 # Recipient pulls it with one command
 toss pull
@@ -25,6 +31,7 @@ AI agent tools like Claude Code and Codex generate documents (analysis reports, 
 ## Features
 
 - **Push/Pull**: Send files to anyone, pull from your inbox
+- **Interactive Mode**: File picker, contact selector, no need to remember arguments
 - **Contacts**: Set aliases for frequent collaborators (`xiaoming` instead of `@zhangsan123`)
 - **Inbox**: Check what's waiting for you without downloading
 - **Shared Spaces** (coming soon): Multiple users read/write to a shared document collection
@@ -119,7 +126,14 @@ toss contacts remove xiaoming
 Send one or more files to a collaborator.
 
 ```bash
-# Push a single file (by alias)
+# Interactive mode (recommended for beginners)
+toss push
+# → Shows file picker (Space to select, Enter to confirm)
+# → Shows contact list or manual input
+# → Optional message prompt
+# → Files sent!
+
+# Direct mode - push a single file (by alias)
 toss push report.md xiaoming
 
 # Push with a message
@@ -153,14 +167,21 @@ Output:
 
 ### Pull Files
 
-Download all pending files from your inbox.
+Download files from your inbox.
 
 ```bash
-# Pull to current directory
+# Pull everything to current directory
 toss pull
 
 # Pull to a specific directory
 toss pull --to ~/Downloads/toss
+
+# Interactive mode - select which files to pull
+toss pull --pick
+# → Shows checkbox with file list (name, size, sender)
+# → Space to select, Enter to confirm
+# → Choose download destination
+# → Selected files downloaded!
 ```
 
 ## Two-Person Collaboration Example
@@ -208,9 +229,11 @@ You (Clay-HHK)                         Your Collaborator (zhangsan)
 | `toss contacts add <github> --alias <name>` | Add a contact |
 | `toss contacts list` | List all contacts |
 | `toss contacts remove <alias>` | Remove a contact |
-| `toss push <files...> <recipient> [-m msg]` | Push files to a recipient |
+| `toss push` | Interactive push (file picker + contact selector) |
+| `toss push <files...> <recipient> [-m msg]` | Direct push files to a recipient |
 | `toss inbox` | List pending documents |
 | `toss pull [--to dir]` | Pull all pending documents |
+| `toss pull --pick` | Interactively select which files to pull |
 
 ## Configuration
 
@@ -311,6 +334,7 @@ toss/
 - [x] GitHub authentication (PAT + Device Flow)
 - [x] Contact management with aliases
 - [x] Document push/pull
+- [x] Interactive file selection
 - [x] Cloudflare Worker backend (D1 + R2)
 - [ ] Shared Spaces (multi-user document sync)
 - [ ] MCP Server (Claude Code / Cursor native integration)
