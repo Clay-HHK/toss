@@ -53,6 +53,9 @@ CLI (Python)  ──HTTPS──>  Cloudflare Worker (TypeScript)
 
 ## 快速开始
 
+> **注意**：Toss 需要后端服务。每个团队/小组需要自己部署一个 Cloudflare Worker（免费）。
+> 参见下方 [自部署](#自部署) 章节，5 分钟即可完成。
+
 ### 前置条件
 
 - Python 3.13+
@@ -60,7 +63,11 @@ CLI (Python)  ──HTTPS──>  Cloudflare Worker (TypeScript)
 - GitHub 账号
 - GitHub Personal Access Token（[点此创建](https://github.com/settings/tokens)，勾选 `read:user` 权限）
 
-### 安装
+### 1. 部署后端（每个团队一人操作即可）
+
+按照下方 [自部署](#自部署) 章节部署你的 Cloudflare Worker。部署完成后会得到一个 URL，类似 `https://toss-api.<your-subdomain>.workers.dev`。
+
+### 2. 安装 CLI（每个人都需要）
 
 ```bash
 # 克隆仓库
@@ -72,6 +79,9 @@ uv sync
 
 # 初始化配置
 uv run toss init
+
+# 设置你团队的服务器地址
+# 编辑 ~/.toss/config.yaml，将 base_url 改为你的 Worker URL
 
 # 使用 GitHub PAT 登录
 uv run toss login --pat

@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 class ServerConfig:
     """Remote Toss Worker API configuration."""
 
-    base_url: str = "https://toss-api.workers.dev"
+    base_url: str = "https://toss-api.<your-subdomain>.workers.dev"
     timeout: int = 30
 
 

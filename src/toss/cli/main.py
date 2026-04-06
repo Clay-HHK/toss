@@ -50,7 +50,12 @@ def init() -> None:
     config = cm.load_config()
     cm.save_config(config)
     console.print("[green]Initialized![/green]", f"Config dir: {cm.base_dir}")
-    console.print("Run [bold]toss login[/bold] to authenticate with GitHub.")
+    console.print(
+        "\n[bold]Next steps:[/bold]\n"
+        "  1. Edit [cyan]~/.toss/config.yaml[/cyan] and set [bold]base_url[/bold]"
+        " to your team's Worker URL\n"
+        "  2. Run [bold]toss login --pat[/bold] to authenticate with GitHub"
+    )
 
 
 @main.command()

@@ -53,6 +53,9 @@ CLI (Python)  ──HTTPS──>  Cloudflare Worker (TypeScript)
 
 ## Quick Start
 
+> **Important**: Toss requires a backend server. Each team/group needs to deploy their own
+> Cloudflare Worker (free). See [Self-Hosting](#self-hosting) below for the 5-minute setup.
+
 ### Prerequisites
 
 - Python 3.13+
@@ -60,7 +63,11 @@ CLI (Python)  ──HTTPS──>  Cloudflare Worker (TypeScript)
 - A GitHub account
 - A GitHub Personal Access Token ([create one here](https://github.com/settings/tokens), select `read:user` scope)
 
-### Install
+### 1. Deploy Backend (one person per team)
+
+Follow the [Self-Hosting](#self-hosting) section to deploy your own Cloudflare Worker. You will get a URL like `https://toss-api.<your-subdomain>.workers.dev`.
+
+### 2. Install CLI (everyone)
 
 ```bash
 # Clone the repo
@@ -72,6 +79,9 @@ uv sync
 
 # Initialize config
 uv run toss init
+
+# Set your team's server URL
+# Edit ~/.toss/config.yaml and set base_url to your Worker URL
 
 # Login with your GitHub PAT
 uv run toss login --pat
