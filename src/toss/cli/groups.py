@@ -21,6 +21,14 @@ def _get_group_client() -> GroupClient:
     return GroupClient(client)
 
 
+def _make_full_invite_code(invite_code: str) -> str:
+    """Combine server host with invite code for zero-config joining."""
+    cm = ConfigManager()
+    config = cm.load_config()
+    host = config.server.base_url.replace("https://", "").rstrip("/")
+    return f"{host}/{invite_code}"
+
+
 @click.group()
 def group() -> None:
     """Manage groups for multi-person sharing."""
@@ -34,14 +42,13 @@ def create(name: str, slug: str | None) -> None:
     try:
         gc = _get_group_client()
         result = gc.create(name, slug)
+        full_code = _make_full_invite_code(result.get("invite_code", ""))
         console.print(f"[green]Created[/green] group [bold]{result.get('name')}[/bold]")
         console.print(f"  Slug: {result.get('slug')}")
+        console.print(f"  Invite code: [bold cyan]{full_code}[/bold cyan]")
         console.print(
-            f"  Invite code: [bold cyan]{result.get('invite_code')}[/bold cyan]"
-        )
-        console.print(
-            "\nShare the invite code with your team."
-            " They can join with: [bold]toss group join <code>[/bold]"
+            "\nShare the invite code. Others can join with:\n"
+            f"  [bold]toss join {full_code}[/bold]"
         )
     except TossAPIError as e:
         console.print(f"[red]Error:[/red] {e.detail}")
@@ -87,10 +94,12 @@ def invite(slug: str) -> None:
     try:
         gc = _get_group_client()
         result = gc.get_invite(slug)
+        full_code = _make_full_invite_code(result.get("invite_code", ""))
         console.print(
             f"Group [bold]{result.get('group_name')}[/bold]"
-            f" invite code: [bold cyan]{result.get('invite_code')}[/bold cyan]"
+            f" invite code: [bold cyan]{full_code}[/bold cyan]"
         )
+        console.print(f"\nJoin command: [bold]toss join {full_code}[/bold]")
     except TossAPIError as e:
         console.print(f"[red]Error:[/red] {e.detail}")
         sys.exit(1)

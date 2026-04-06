@@ -17,7 +17,10 @@ from toss.cli.contacts import contacts
 from toss.cli.groups import group
 from toss.cli.push_pull import inbox, pull, push
 from toss.cli.spaces import space
+from toss.client.base import TossAPIError, TossClient
+from toss.client.groups import GroupClient
 from toss.config.manager import ConfigManager
+from toss.config.models import ServerConfig, TossConfig
 
 console = Console()
 
@@ -218,3 +221,79 @@ def logout() -> None:
     username = store.github_username
     store.clear()
     console.print(f"[green]Logged out[/green] ({username})")
+
+
+@main.command()
+@click.argument("invite_code")
+def join(invite_code: str) -> None:
+    """Join a group with one command (auto-configures everything).
+
+    The invite code contains the server address.
+    Example: toss join toss-api.example.workers.dev/ABCD-1234
+    """
+    # 1. Parse invite code: "host/CODE" or plain "CODE"
+    if "/" in invite_code:
+        parts = invite_code.rsplit("/", 1)
+        server_host = parts[0]
+        code = parts[1]
+        base_url = f"https://{server_host}"
+    else:
+        console.print(
+            "[red]Error:[/red] Invite code must include server address.\n"
+            "  Format: server.example.com/ABCD-1234"
+        )
+        sys.exit(1)
+
+    # 2. Auto-init if needed
+    cm = _get_config_manager()
+    if not cm.is_initialized:
+        cm.ensure_dirs()
+        console.print("[green]Initialized[/green] ~/.toss/")
+
+    # 3. Configure base_url
+    config = cm.load_config()
+    updated = TossConfig(
+        server=ServerConfig(base_url=base_url, timeout=config.server.timeout),
+        sync=config.sync,
+        default_space=config.default_space,
+        spaces_dir=config.spaces_dir,
+    )
+    cm.save_config(updated)
+    console.print(f"[green]Configured[/green] server: {base_url}")
+
+    # 4. Login if not logged in
+    store = TokenStore(cm)
+    if not store.is_logged_in:
+        console.print("\n[bold]Login required.[/bold] Authenticate with GitHub:")
+        token = getpass.getpass("  GitHub Personal Access Token: ")
+        if not token.strip():
+            console.print("[red]Token cannot be empty.[/red]")
+            sys.exit(1)
+
+        auth = GitHubAuth(base_url, updated.server.timeout)
+        try:
+            result = auth.authenticate_with_pat(token.strip())
+        except AuthError as e:
+            console.print(f"[red]Login failed:[/red] {e}")
+            sys.exit(1)
+
+        store.save(result.jwt, result.github_username)
+        console.print(
+            f"[green]Logged in as[/green] [bold]{result.github_username}[/bold]"
+        )
+
+    # 5. Join the group
+    try:
+        client = TossClient.from_config(cm)
+        gc = GroupClient(client)
+        result = gc.join(code)
+        console.print(
+            f"\n[green]{result.get('message', 'Joined')}[/green]"
+            f" group [bold]{result.get('group_name', '?')}[/bold]"
+        )
+        console.print("\nYou're all set! Try:")
+        console.print("  [bold]toss inbox[/bold]       - check for files")
+        console.print("  [bold]toss group list[/bold]  - see your groups")
+    except TossAPIError as e:
+        console.print(f"[red]Failed to join:[/red] {e.detail}")
+        sys.exit(1)
