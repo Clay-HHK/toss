@@ -1,6 +1,10 @@
 #!/bin/bash
 # Check Toss inbox on session start
-output=$(cd /Users/hanhaoke/2026/project/toss && uv run toss inbox 2>/dev/null)
+# Requires: toss installed globally (uv tool install .)
+if ! command -v toss &>/dev/null; then
+    exit 0
+fi
+output=$(toss inbox 2>/dev/null)
 # Count data rows (lines with │ but not header/border lines)
 count=$(echo "$output" | grep "^│" | wc -l | tr -d ' ')
 if [ "$count" -gt 0 ]; then

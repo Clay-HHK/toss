@@ -34,8 +34,10 @@ AI agent 工具（Claude Code、Codex 等）会产生大量文档（分析报告
 - **交互模式**：文件选择器、联系人选择器，不用记参数
 - **联系人**：给常用协作者设置别名（用 `xiaoming` 代替 `@zhangsan123`）
 - **收件箱**：查看待接收文件，不下载
+- **群组**：创建群组，通过邀请码邀请成员，一次推送文件给所有人
+- **零配置加入**：`toss join server/CODE` 一条命令自动配置一切
 - **共享空间**：多人读写同一个文档集合，基于 SHA-256 差异同步
-- **MCP Server**：Claude Code / Cursor 原生调用 Toss
+- **MCP Server**：Claude Code / Cursor 原生调用 Toss（10 个工具）
 - **Claude Code Hooks**：启动时检查收件箱，保存文件时自动同步
 - **速率限制**：每用户 60 次请求/分钟
 - **自动清理**：过期文档 30 天后自动清理
@@ -58,39 +60,55 @@ CLI (Python)  ──HTTPS──>  Cloudflare Worker (TypeScript)
 > **注意**：Toss 需要后端服务。每个团队/小组需要自己部署一个 Cloudflare Worker（免费）。
 > 参见下方 [自部署](#自部署) 章节，5 分钟即可完成。
 
+### 加入团队（最简单的方式）
+
+如果已有人部署了 Toss 服务并给了你邀请码：
+
+```bash
+# 方式 A：通过 npm（不需要 Python）
+npx toss-cli join toss-api.example.workers.dev/ABCD-1234
+
+# 方式 B：通过 uv
+uvx --from git+https://github.com/Clay-HHK/toss.git toss join toss-api.example.workers.dev/ABCD-1234
+```
+
+一条命令自动配置服务器地址、提示登录、加入群组。
+
+### 安装 CLI
+
+```bash
+# 方式 A：npm（自动安装 uv）
+npm install -g toss-cli
+toss --version
+
+# 方式 B：uv（Python 用户）
+uv tool install git+https://github.com/Clay-HHK/toss.git
+toss --version
+
+# 方式 C：从源码安装
+git clone https://github.com/Clay-HHK/toss.git
+cd toss && uv tool install .
+```
+
 ### 前置条件
 
-- Python 3.13+
-- [uv](https://docs.astral.sh/uv/) 包管理器
 - GitHub 账号
 - GitHub Personal Access Token（[点此创建](https://github.com/settings/tokens)，勾选 `read:user` 权限）
 
-### 1. 部署后端（每个团队一人操作即可）
-
-按照下方 [自部署](#自部署) 章节部署你的 Cloudflare Worker。部署完成后会得到一个 URL，类似 `https://toss-api.<your-subdomain>.workers.dev`。
-
-### 2. 安装 CLI（每个人都需要）
+### 手动配置（不使用邀请码时）
 
 ```bash
-# 克隆仓库
-git clone https://github.com/Clay-HHK/toss.git
-cd toss
-
-# 安装依赖
-uv sync
-
 # 初始化配置
-uv run toss init
+toss init
 
 # 设置你团队的服务器地址
 # 编辑 ~/.toss/config.yaml，将 base_url 改为你的 Worker URL
 
 # 使用 GitHub PAT 登录
-uv run toss login --pat
-# 粘贴你的 token
+toss login --pat
 
 # 验证身份
-uv run toss whoami
+toss whoami
 ```
 
 ### 网络说明（中国大陆）
@@ -220,29 +238,47 @@ toss space list
 
 同步引擎会在本地计算 SHA-256 哈希，发送清单到服务端，只传输有变化的文件。冲突文件会保存为 `filename.server.ext`，需要手动解决。
 
+### 群组
+
+创建群组，方便多人共享文件。
+
+```bash
+# 创建群组
+toss group create paper-team
+
+# 分享邀请码（包含服务器地址，接收方零配置）
+# 输出: Invite code: toss-api.example.workers.dev/ABCD-1234
+
+# 其他人一条命令加入
+toss join toss-api.example.workers.dev/ABCD-1234
+
+# 向群组所有成员推送文件
+toss group push report.md paper-team -m "帮忙看看"
+
+# 查看群组列表
+toss group list
+
+# 查看群组成员
+toss group members paper-team
+```
+
 ### MCP Server（Claude Code / Cursor）
 
 Toss 内置了 MCP 服务，让 Claude Code 和 Cursor 可以原生调用 Toss 工具。
 
-```bash
-# 安装 MCP 支持
-uv sync --extra mcp
-```
-
-添加到你的 Claude Code 或 Cursor MCP 配置（`.mcp.json`）：
+如果 `toss` 已全局安装（`npm install -g toss-cli` 或 `uv tool install .`），复制 `.mcp.json` 到你的项目：
 
 ```json
 {
   "mcpServers": {
     "toss": {
-      "command": "uv",
-      "args": ["run", "--directory", "/path/to/toss", "python", "-m", "toss.mcp.server"]
+      "command": "toss-mcp"
     }
   }
 }
 ```
 
-可用的 MCP 工具：`push_document`、`pull_documents`、`list_inbox`、`list_contacts`、`add_contact`、`remove_contact`。
+可用的 MCP 工具：`push_document`、`pull_documents`、`list_inbox`、`list_contacts`、`add_contact`、`remove_contact`、`push_to_group`、`list_groups`、`create_group`、`join_group`。
 
 ### Claude Code Hooks
 
@@ -307,6 +343,13 @@ toss init --install-hooks
 | `toss inbox` | 查看待接收文档 |
 | `toss pull [--to dir]` | 拉取全部待接收文档 |
 | `toss pull --pick` | 交互式选择要拉取的文件 |
+| `toss join <server/CODE>` | 加入群组（自动配置一切） |
+| `toss group create <name>` | 创建群组 |
+| `toss group list` | 查看群组列表 |
+| `toss group invite <slug>` | 显示群组邀请码 |
+| `toss group join <code>` | 通过邀请码加入群组 |
+| `toss group members <slug>` | 查看群组成员 |
+| `toss group push <files...> <slug> [-m msg]` | 向群组所有成员推送文件 |
 | `toss space create <name> [--slug]` | 创建共享空间 |
 | `toss space list` | 查看你的空间 |
 | `toss space add-member <slug> <github>` | 添加空间成员 |
@@ -382,20 +425,22 @@ npx wrangler deploy
 toss/
 ├── src/toss/                    # Python CLI + SDK
 │   ├── cli/                     # Click 命令
-│   │   ├── main.py              # init, login, whoami, logout
+│   │   ├── main.py              # init, login, whoami, logout, join
 │   │   ├── contacts.py          # contacts add/list/remove
+│   │   ├── groups.py            # group create/list/invite/join/push
 │   │   ├── push_pull.py         # push, pull, inbox（支持交互模式）
-│   │   └── spaces.py           # space create/list/sync
+│   │   └── spaces.py            # space create/list/sync
 │   ├── client/                  # HTTP 客户端 SDK
 │   │   ├── base.py              # TossClient (httpx)
 │   │   ├── contacts.py          # ContactClient
 │   │   ├── documents.py         # DocumentClient
-│   │   └── spaces.py           # SpaceClient
+│   │   ├── groups.py            # GroupClient
+│   │   └── spaces.py            # SpaceClient
 │   ├── sync/                    # 空间同步引擎
 │   │   ├── state.py             # 本地清单（SHA-256）
 │   │   └── engine.py            # 差异计算 + 上传/下载
 │   ├── mcp/                     # MCP 服务
-│   │   └── server.py            # FastMCP，6 个工具
+│   │   └── server.py            # FastMCP，10 个工具
 │   ├── config/                  # 配置管理
 │   │   ├── models.py            # Frozen dataclasses
 │   │   └── manager.py           # ConfigManager
@@ -407,10 +452,14 @@ toss/
 │   ├── src/
 │   │   ├── index.ts             # 入口 + 定时清理
 │   │   ├── router.ts            # 路由定义
-│   │   ├── handlers/            # API 处理器（auth, contacts, documents, spaces, cleanup）
+│   │   ├── handlers/            # API 处理器（auth, contacts, documents, groups, spaces, cleanup）
 │   │   ├── middleware/          # 认证、CORS、速率限制
 │   │   └── services/            # 数据库、存储、GitHub
 │   └── schema.sql               # D1 数据库 schema
+│
+├── npm/                         # npm 包（轻量 wrapper）
+│   ├── package.json             # toss-cli npm 包
+│   └── bin/toss.js              # 自动安装 uv，通过 uvx 运行
 │
 ├── hooks/                       # Claude Code hooks
 │   ├── toss-inbox-check.sh      # 启动时检查收件箱
@@ -432,6 +481,10 @@ toss/
 - [x] Claude Code Hooks（保存文件时自动同步）
 - [x] 速率限制和文件大小限制
 - [x] 过期文档自动清理
+- [x] 群组功能（邀请码）
+- [x] 零配置加入（`toss join server/CODE`）
+- [x] npm 包（`npx toss-cli`）
+- [x] 可移植的 hooks 和 MCP 配置（无硬编码路径）
 - [ ] 端到端加密
 - [ ] Web UI 控制台
 

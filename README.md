@@ -34,8 +34,10 @@ AI agent tools like Claude Code and Codex generate documents (analysis reports, 
 - **Interactive Mode**: File picker, contact selector, no need to remember arguments
 - **Contacts**: Set aliases for frequent collaborators (`xiaoming` instead of `@zhangsan123`)
 - **Inbox**: Check what's waiting for you without downloading
+- **Groups**: Create groups, invite members with a code, push files to everyone at once
+- **Zero-Config Join**: `toss join server/CODE` auto-configures everything in one command
 - **Shared Spaces**: Multiple users read/write to a shared document collection
-- **MCP Server**: Let Claude Code/Cursor call Toss tools natively
+- **MCP Server**: Let Claude Code/Cursor call Toss tools natively (10 tools)
 - **Claude Code Hooks**: Auto-sync on file save, inbox check on session start
 - **Rate Limiting**: 60 requests/min per user
 - **Auto Cleanup**: Expired documents cleaned up after 30 days
@@ -58,39 +60,55 @@ CLI (Python)  ──HTTPS──>  Cloudflare Worker (TypeScript)
 > **Important**: Toss requires a backend server. Each team/group needs to deploy their own
 > Cloudflare Worker (free). See [Self-Hosting](#self-hosting) below for the 5-minute setup.
 
+### Join a Team (easiest way)
+
+If someone already set up a Toss server and gave you an invite code:
+
+```bash
+# Option A: via npm (no Python needed)
+npx toss-cli join toss-api.example.workers.dev/ABCD-1234
+
+# Option B: via uv
+uvx --from git+https://github.com/Clay-HHK/toss.git toss join toss-api.example.workers.dev/ABCD-1234
+```
+
+That single command auto-configures the server URL, prompts you to log in, and joins the group. Done.
+
+### Install CLI
+
+```bash
+# Option A: npm (auto-installs uv if needed)
+npm install -g toss-cli
+toss --version
+
+# Option B: uv (Python users)
+uv tool install git+https://github.com/Clay-HHK/toss.git
+toss --version
+
+# Option C: from source
+git clone https://github.com/Clay-HHK/toss.git
+cd toss && uv tool install .
+```
+
 ### Prerequisites
 
-- Python 3.13+
-- [uv](https://docs.astral.sh/uv/) package manager
 - A GitHub account
 - A GitHub Personal Access Token ([create one here](https://github.com/settings/tokens), select `read:user` scope)
 
-### 1. Deploy Backend (one person per team)
-
-Follow the [Self-Hosting](#self-hosting) section to deploy your own Cloudflare Worker. You will get a URL like `https://toss-api.<your-subdomain>.workers.dev`.
-
-### 2. Install CLI (everyone)
+### Setup (if not using invite code)
 
 ```bash
-# Clone the repo
-git clone https://github.com/Clay-HHK/toss.git
-cd toss
-
-# Install with uv
-uv sync
-
 # Initialize config
-uv run toss init
+toss init
 
 # Set your team's server URL
 # Edit ~/.toss/config.yaml and set base_url to your Worker URL
 
 # Login with your GitHub PAT
-uv run toss login --pat
-# Paste your token when prompted
+toss login --pat
 
 # Verify
-uv run toss whoami
+toss whoami
 ```
 
 ### Network Note (China)
@@ -220,29 +238,47 @@ toss space list
 
 The sync engine computes SHA-256 hashes locally, sends a manifest to the server, and only transfers changed files. Conflicts are saved as `filename.server.ext` for manual resolution.
 
+### Groups
+
+Create groups for multi-person file sharing.
+
+```bash
+# Create a group
+toss group create paper-team
+
+# Share the invite code (includes server URL, zero-config for recipients)
+# Output: Invite code: toss-api.example.workers.dev/ABCD-1234
+
+# Others join with one command
+toss join toss-api.example.workers.dev/ABCD-1234
+
+# Push a file to all group members at once
+toss group push report.md paper-team -m "review please"
+
+# List your groups
+toss group list
+
+# See group members
+toss group members paper-team
+```
+
 ### MCP Server (Claude Code / Cursor)
 
 Toss includes an MCP server so Claude Code and Cursor can call Toss tools natively.
 
-```bash
-# Install with MCP support
-uv sync --extra mcp
-```
-
-Add to your Claude Code or Cursor MCP config (`.mcp.json`):
+If `toss` is installed globally (`npm install -g toss-cli` or `uv tool install .`), copy `.mcp.json` to your project:
 
 ```json
 {
   "mcpServers": {
     "toss": {
-      "command": "uv",
-      "args": ["run", "--directory", "/path/to/toss", "python", "-m", "toss.mcp.server"]
+      "command": "toss-mcp"
     }
   }
 }
 ```
 
-Available MCP tools: `push_document`, `pull_documents`, `list_inbox`, `list_contacts`, `add_contact`, `remove_contact`.
+Available MCP tools: `push_document`, `pull_documents`, `list_inbox`, `list_contacts`, `add_contact`, `remove_contact`, `push_to_group`, `list_groups`, `create_group`, `join_group`.
 
 ### Claude Code Hooks
 
@@ -307,6 +343,13 @@ You (Clay-HHK)                         Your Collaborator (zhangsan)
 | `toss inbox` | List pending documents |
 | `toss pull [--to dir]` | Pull all pending documents |
 | `toss pull --pick` | Interactively select which files to pull |
+| `toss join <server/CODE>` | Join a group (auto-configures everything) |
+| `toss group create <name>` | Create a group |
+| `toss group list` | List your groups |
+| `toss group invite <slug>` | Show invite code for a group |
+| `toss group join <code>` | Join a group by invite code |
+| `toss group members <slug>` | List group members |
+| `toss group push <files...> <slug> [-m msg]` | Push files to all group members |
 | `toss space create <name> [--slug]` | Create a shared space |
 | `toss space list` | List your spaces |
 | `toss space add-member <slug> <github>` | Add member to a space |
@@ -382,20 +425,22 @@ After deployment, update `~/.toss/config.yaml` to point `base_url` to your Worke
 toss/
 ├── src/toss/                    # Python CLI + SDK
 │   ├── cli/                     # Click commands
-│   │   ├── main.py              # init, login, whoami, logout
+│   │   ├── main.py              # init, login, whoami, logout, join
 │   │   ├── contacts.py          # contacts add/list/remove
+│   │   ├── groups.py            # group create/list/invite/join/push
 │   │   ├── push_pull.py         # push, pull, inbox
-│   │   └── spaces.py           # space create/list/sync
+│   │   └── spaces.py            # space create/list/sync
 │   ├── client/                  # HTTP client SDK
 │   │   ├── base.py              # TossClient (httpx)
 │   │   ├── contacts.py          # ContactClient
 │   │   ├── documents.py         # DocumentClient
-│   │   └── spaces.py           # SpaceClient
+│   │   ├── groups.py            # GroupClient
+│   │   └── spaces.py            # SpaceClient
 │   ├── sync/                    # Space sync engine
 │   │   ├── state.py             # Local manifest (SHA-256)
 │   │   └── engine.py            # Diff + upload/download
 │   ├── mcp/                     # MCP Server
-│   │   └── server.py            # FastMCP with 6 tools
+│   │   └── server.py            # FastMCP with 10 tools
 │   ├── config/                  # Configuration
 │   │   ├── models.py            # Frozen dataclasses
 │   │   └── manager.py           # ConfigManager
@@ -407,10 +452,14 @@ toss/
 │   ├── src/
 │   │   ├── index.ts             # Entry point + cron handler
 │   │   ├── router.ts            # Route definitions
-│   │   ├── handlers/            # API handlers (auth, contacts, documents, spaces, cleanup)
+│   │   ├── handlers/            # API handlers (auth, contacts, documents, groups, spaces, cleanup)
 │   │   ├── middleware/          # Auth, CORS, rate limiting
 │   │   └── services/            # DB, Storage, GitHub
 │   └── schema.sql               # D1 database schema
+│
+├── npm/                         # npm package (thin wrapper)
+│   ├── package.json             # toss-cli npm package
+│   └── bin/toss.js              # Auto-installs uv, delegates via uvx
 │
 ├── hooks/                       # Claude Code hooks
 │   ├── toss-inbox-check.sh      # SessionStart: inbox count
@@ -432,6 +481,10 @@ toss/
 - [x] Claude Code Hooks (auto-sync on file save)
 - [x] Rate limiting and file size limits
 - [x] Expired document auto-cleanup
+- [x] Groups with invite codes
+- [x] Zero-config join (`toss join server/CODE`)
+- [x] npm package (`npx toss-cli`)
+- [x] Portable hooks and MCP config (no hardcoded paths)
 - [ ] End-to-end encryption
 - [ ] Web UI dashboard
 

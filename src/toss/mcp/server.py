@@ -291,5 +291,10 @@ def _human_size(nbytes: int) -> str:
     return f"{nbytes:.1f}TB"
 
 
-if __name__ == "__main__":
+def main() -> None:
+    """Entry point for toss-mcp console script."""
     mcp.run()
+
+
+if __name__ == "__main__":
+    main()

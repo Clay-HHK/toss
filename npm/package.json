@@ -1,0 +1,28 @@
+{
+  "name": "toss-cli",
+  "version": "0.1.0",
+  "description": "Toss: Agent-to-Agent document sharing tool",
+  "bin": {
+    "toss": "bin/toss.js"
+  },
+  "keywords": [
+    "cli",
+    "agent",
+    "document-sharing",
+    "claude-code",
+    "mcp"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Clay-HHK/toss.git",
+    "directory": "npm"
+  },
+  "license": "MIT",
+  "author": "Han Haoke <hanhaoke@qdu.edu.cn>",
+  "files": [
+    "bin/toss.js"
+  ],
+  "engines": {
+    "node": ">=16"
+  }
+}

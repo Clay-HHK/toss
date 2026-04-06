@@ -17,6 +17,7 @@ dependencies = [
 
 [project.scripts]
 toss = "toss.cli.main:main"
+toss-mcp = "toss.mcp.server:main"
 
 [project.optional-dependencies]
 mcp = ["mcp>=1.0"]
