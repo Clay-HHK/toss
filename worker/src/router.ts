@@ -17,6 +17,14 @@ import {
   handleListSent,
 } from "./handlers/documents";
 import {
+  handleCreateGroup,
+  handleListGroups,
+  handleGetInvite,
+  handleJoinGroup,
+  handleListMembers,
+  handleGroupPush,
+} from "./handlers/groups";
+import {
   handleCreateSpace,
   handleListSpaces,
   handleAddMember,
@@ -66,6 +74,14 @@ export const routes: Route[] = [
   route("POST", "/api/v1/spaces/:slug/sync", handleSyncSpace),
   route("POST", "/api/v1/spaces/:slug/files/upload", handleUploadSpaceFile),
   route("GET", "/api/v1/spaces/:slug/files/download", handleDownloadSpaceFile),
+
+  // Groups
+  route("POST", "/api/v1/groups", handleCreateGroup),
+  route("GET", "/api/v1/groups", handleListGroups),
+  route("POST", "/api/v1/groups/join", handleJoinGroup),
+  route("GET", "/api/v1/groups/:slug/invite", handleGetInvite),
+  route("GET", "/api/v1/groups/:slug/members", handleListMembers),
+  route("POST", "/api/v1/groups/:slug/push", handleGroupPush),
 
   // Admin
   route("POST", "/api/v1/admin/cleanup", handleCleanupExpired),

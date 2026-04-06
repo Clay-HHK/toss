@@ -14,6 +14,7 @@ from rich.console import Console
 from toss.auth.github import AuthError, GitHubAuth
 from toss.auth.token_store import TokenStore
 from toss.cli.contacts import contacts
+from toss.cli.groups import group
 from toss.cli.push_pull import inbox, pull, push
 from toss.cli.spaces import space
 from toss.config.manager import ConfigManager
@@ -77,6 +78,7 @@ def main(ctx: click.Context) -> None:
 
 # Register subcommands
 main.add_command(contacts)
+main.add_command(group)
 main.add_command(push)
 main.add_command(pull)
 main.add_command(inbox)

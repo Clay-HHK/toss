@@ -70,6 +70,15 @@ export interface SpaceFileRow {
   updated_at: string;
 }
 
+export interface GroupRow {
+  id: string;
+  name: string;
+  slug: string;
+  invite_code: string;
+  owner_id: string;
+  created_at: string;
+}
+
 export type RouteHandler = (
   req: Request,
   env: Env,

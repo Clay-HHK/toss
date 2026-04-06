@@ -10,6 +10,7 @@ from mcp.server.fastmcp import FastMCP
 from toss.client.base import TossAPIError, TossClient
 from toss.client.contacts import ContactClient
 from toss.client.documents import DocumentClient
+from toss.client.groups import GroupClient
 from toss.config.manager import ConfigManager
 
 logger = logging.getLogger(__name__)
@@ -27,6 +28,12 @@ def _make_contact_client() -> ContactClient:
     """Create a ContactClient from stored config."""
     client = TossClient.from_config(ConfigManager())
     return ContactClient(client)
+
+
+def _make_group_client() -> GroupClient:
+    """Create a GroupClient from stored config."""
+    client = TossClient.from_config(ConfigManager())
+    return GroupClient(client)
 
 
 @mcp.tool()
@@ -159,6 +166,101 @@ def remove_contact(alias: str) -> str:
         cc = _make_contact_client()
         cc.remove(alias)
         return f"Removed contact: {alias}"
+    except TossAPIError as e:
+        return f"Error: {e.detail}"
+
+
+@mcp.tool()
+def push_to_group(
+    file_path: str,
+    group_slug: str,
+    message: str | None = None,
+) -> str:
+    """Push a file to all members of a group.
+
+    Args:
+        file_path: Path to the local file to send.
+        group_slug: Slug of the group.
+        message: Optional message to attach.
+
+    Returns:
+        Success or error message.
+    """
+    try:
+        gc = _make_group_client()
+        path = Path(file_path).expanduser().resolve()
+        if not path.is_file():
+            return f"Error: file not found: {file_path}"
+        result = gc.push(group_slug, path, message)
+        count = result.get("delivered_count", "?")
+        return f"Pushed {path.name} to group {group_slug} ({count} members)"
+    except TossAPIError as e:
+        return f"Error: {e.detail}"
+
+
+@mcp.tool()
+def list_groups() -> str:
+    """List groups you belong to.
+
+    Returns:
+        Plain text list of groups or error message.
+    """
+    try:
+        gc = _make_group_client()
+        groups = gc.list_groups()
+        if not groups:
+            return "No groups."
+        lines = ["Name             Slug             Members"]
+        lines.append("-" * 50)
+        for g in groups:
+            name = g.get("name", "")[:16]
+            slug = g.get("slug", "")[:16]
+            count = g.get("member_count", "?")
+            lines.append(f"{name:<16} {slug:<16} {count}")
+        return "\n".join(lines)
+    except TossAPIError as e:
+        return f"Error: {e.detail}"
+
+
+@mcp.tool()
+def create_group(name: str) -> str:
+    """Create a new group for multi-person file sharing.
+
+    Args:
+        name: Name of the group.
+
+    Returns:
+        Group info with invite code, or error message.
+    """
+    try:
+        gc = _make_group_client()
+        result = gc.create(name)
+        code = result.get("invite_code", "?")
+        slug = result.get("slug", "?")
+        return (
+            f"Created group '{name}' (slug: {slug}). "
+            f"Invite code: {code}. "
+            f"Share this code so others can join with 'toss group join {code}'."
+        )
+    except TossAPIError as e:
+        return f"Error: {e.detail}"
+
+
+@mcp.tool()
+def join_group(invite_code: str) -> str:
+    """Join a group using an invite code.
+
+    Args:
+        invite_code: The invite code (e.g. ABCD-1234).
+
+    Returns:
+        Confirmation or error message.
+    """
+    try:
+        gc = _make_group_client()
+        result = gc.join(invite_code)
+        group_name = result.get("group_name", "?")
+        return f"Joined group '{group_name}'"
     except TossAPIError as e:
         return f"Error: {e.detail}"
 
