@@ -58,6 +58,10 @@ class DocumentClient:
         """Fetch a preview of a document without marking it as pulled."""
         return self._client.get(f"/api/v1/documents/inbox/{doc_id}/preview")
 
+    def delete(self, doc_id: str) -> dict[str, Any]:
+        """Delete a document from inbox without pulling."""
+        return self._client.delete(f"/api/v1/documents/inbox/{doc_id}")
+
     def pull(self, doc_id: str, dest_dir: Path) -> Path:
         """Download a document from inbox.
 

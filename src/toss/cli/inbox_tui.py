@@ -78,7 +78,8 @@ def _render_list(items: list[dict[str, Any]], cursor: int) -> None:
 
     console.print()
     console.print(
-        "[dim]  j/↓ down  k/↑ up  Enter preview  p pull  a pull all  q quit[/dim]"
+        "[dim]  j/↓ down  k/↑ up  Enter preview"
+        "  p pull  d delete  a pull all  q quit[/dim]"
     )
 
 
@@ -122,7 +123,7 @@ def _render_preview(item: dict[str, Any], preview_data: dict[str, Any]) -> None:
         )
 
     console.print()
-    console.print("[dim]  q/Esc back  p pull this file[/dim]")
+    console.print("[dim]  q/Esc back  p pull this file  d delete[/dim]")
 
 
 def run_inbox_browser(dc: DocumentClient, items: list[dict[str, Any]]) -> None:
@@ -176,6 +177,34 @@ def run_inbox_browser(dc: DocumentClient, items: list[dict[str, Any]]) -> None:
                 except TossAPIError as e:
                     _render_list(items, cursor)
                     console.print(f"\n[red]Pull failed: {e.detail}[/red]")
+            elif key == "d":  # Delete selected
+                item = items[cursor]
+                _render_list(items, cursor)
+                console.print(
+                    f"\n[yellow]Delete {item.get('filename', '?')}?"
+                    " (y to confirm)[/yellow]"
+                )
+                confirm = _read_key()
+                if confirm == "y":
+                    try:
+                        dc.delete(item["id"])
+                        items.pop(cursor)
+                        if cursor >= len(items) and cursor > 0:
+                            cursor -= 1
+                        if not items:
+                            console.clear()
+                            console.print("[green]Inbox empty.[/green]")
+                            break
+                        _render_list(items, cursor)
+                        console.print(
+                            f"\n[yellow]Deleted[/yellow]"
+                            f" {item.get('filename', '?')}"
+                        )
+                    except TossAPIError as e:
+                        _render_list(items, cursor)
+                        console.print(f"\n[red]Delete failed: {e.detail}[/red]")
+                else:
+                    _render_list(items, cursor)
             elif key == "a":  # Pull all
                 console.clear()
                 dest_dir = Path.cwd()
@@ -220,3 +249,32 @@ def run_inbox_browser(dc: DocumentClient, items: list[dict[str, Any]]) -> None:
                     mode = "list"
                     _render_list(items, cursor)
                     console.print(f"\n[red]Pull failed: {e.detail}[/red]")
+            elif key == "d":  # Delete from preview
+                item = items[cursor]
+                console.print(
+                    f"\n[yellow]Delete {item.get('filename', '?')}?"
+                    " (y to confirm)[/yellow]"
+                )
+                confirm = _read_key()
+                if confirm == "y":
+                    try:
+                        dc.delete(item["id"])
+                        items.pop(cursor)
+                        if cursor >= len(items) and cursor > 0:
+                            cursor -= 1
+                        if not items:
+                            console.clear()
+                            console.print("[green]Inbox empty.[/green]")
+                            break
+                        mode = "list"
+                        _render_list(items, cursor)
+                        console.print(
+                            f"\n[yellow]Deleted[/yellow]"
+                            f" {item.get('filename', '?')}"
+                        )
+                    except TossAPIError as e:
+                        mode = "list"
+                        _render_list(items, cursor)
+                        console.print(f"\n[red]Delete failed: {e.detail}[/red]")
+                else:
+                    _render_preview(item, current_preview)

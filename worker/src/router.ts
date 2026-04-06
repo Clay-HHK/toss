@@ -15,6 +15,7 @@ import {
   handleListInbox,
   handleDownloadDocument,
   handlePreviewDocument,
+  handleDeleteDocument,
   handleListSent,
 } from "./handlers/documents";
 import {
@@ -67,6 +68,7 @@ export const routes: Route[] = [
   route("GET", "/api/v1/documents/inbox", handleListInbox),
   route("GET", "/api/v1/documents/inbox/:id/download", handleDownloadDocument),
   route("GET", "/api/v1/documents/inbox/:id/preview", handlePreviewDocument),
+  route("DELETE", "/api/v1/documents/inbox/:id", handleDeleteDocument),
   route("GET", "/api/v1/documents/sent", handleListSent),
 
   // Spaces

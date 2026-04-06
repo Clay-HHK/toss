@@ -209,6 +209,39 @@ export async function handlePreviewDocument(
 }
 
 /**
+ * DELETE /api/v1/documents/inbox/:id
+ * Dismiss a document from inbox without pulling.
+ */
+export async function handleDeleteDocument(
+  _req: Request,
+  env: Env,
+  params: Record<string, string>,
+  userId?: string,
+): Promise<Response> {
+  const docId = params.id;
+
+  const doc = await env.TOSS_DB
+    .prepare("SELECT id, r2_key FROM documents WHERE id = ? AND recipient_id = ?")
+    .bind(docId, userId!)
+    .first<{ id: string; r2_key: string }>();
+
+  if (!doc) {
+    return Response.json({ error: "Document not found" }, { status: 404 });
+  }
+
+  // Delete from R2
+  await env.TOSS_STORAGE.delete(doc.r2_key);
+
+  // Delete from D1
+  await env.TOSS_DB
+    .prepare("DELETE FROM documents WHERE id = ?")
+    .bind(docId)
+    .run();
+
+  return Response.json({ deleted: true, id: docId });
+}
+
+/**
  * GET /api/v1/documents/sent
  */
 export async function handleListSent(
