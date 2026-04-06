@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "toss": {
+      "command": "uv",
+      "args": ["run", "--directory", "/Users/hanhaoke/2026/project/toss", "python", "-m", "toss.mcp.server"]
+    }
+  }
+}

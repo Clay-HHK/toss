@@ -23,5 +23,9 @@ bucket_name = "toss-storage"
 binding = "TOSS_KV"
 id = "<YOUR_KV_NAMESPACE_ID>"
 
+# Cron trigger for expired document cleanup (daily at 03:00 UTC)
+[triggers]
+crons = ["0 3 * * *"]
+
 # Secrets (set via `wrangler secret put`):
 # - JWT_SECRET

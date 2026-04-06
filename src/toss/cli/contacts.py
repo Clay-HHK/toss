@@ -50,7 +50,10 @@ def list_contacts() -> None:
         sys.exit(1)
 
     if not items:
-        console.print("[yellow]No contacts yet.[/yellow] Add one with [bold]toss contacts add[/bold].")
+        console.print(
+            "[yellow]No contacts yet.[/yellow]"
+            " Add one with [bold]toss contacts add[/bold]."
+        )
         return
 
     table = Table(title="Contacts")

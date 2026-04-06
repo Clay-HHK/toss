@@ -3,6 +3,7 @@
  */
 
 import { handleDeviceFlow, handleDeviceToken, handlePATAuth, handleMe } from "./handlers/auth";
+import { handleCleanupExpired } from "./handlers/cleanup";
 import {
   handleListContacts,
   handleAddContact,
@@ -15,7 +16,15 @@ import {
   handleDownloadDocument,
   handleListSent,
 } from "./handlers/documents";
-import type { Env, Route, RouteHandler } from "./types";
+import {
+  handleCreateSpace,
+  handleListSpaces,
+  handleAddMember,
+  handleSyncSpace,
+  handleUploadSpaceFile,
+  handleDownloadSpaceFile,
+} from "./handlers/spaces";
+import type { Route, RouteHandler } from "./types";
 
 function route(
   method: string,
@@ -49,6 +58,17 @@ export const routes: Route[] = [
   route("GET", "/api/v1/documents/inbox", handleListInbox),
   route("GET", "/api/v1/documents/inbox/:id/download", handleDownloadDocument),
   route("GET", "/api/v1/documents/sent", handleListSent),
+
+  // Spaces
+  route("POST", "/api/v1/spaces", handleCreateSpace),
+  route("GET", "/api/v1/spaces", handleListSpaces),
+  route("POST", "/api/v1/spaces/:slug/members", handleAddMember),
+  route("POST", "/api/v1/spaces/:slug/sync", handleSyncSpace),
+  route("POST", "/api/v1/spaces/:slug/files/upload", handleUploadSpaceFile),
+  route("GET", "/api/v1/spaces/:slug/files/download", handleDownloadSpaceFile),
+
+  // Admin
+  route("POST", "/api/v1/admin/cleanup", handleCleanupExpired),
 
   // Health check
   route("GET", "/api/v1/health", async () => {

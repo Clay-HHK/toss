@@ -9,7 +9,7 @@ from typing import Any
 
 import yaml
 
-from .models import TossConfig, ServerConfig, SyncConfig
+from .models import ServerConfig, SyncConfig, TossConfig
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +90,24 @@ class ConfigManager:
 
         self._write_yaml(self._config_path, data)
         logger.info("Config saved to %s", self._config_path)
+
+    def get_default_space(self) -> str | None:
+        """Return the default space slug from config, or None."""
+        config = self.load_config()
+        return config.default_space
+
+    def set_default_space(self, slug: str) -> None:
+        """Set the default space slug and persist to config."""
+        config = self.load_config()
+        # Rebuild with updated default_space (frozen dataclass, so create new)
+        updated = TossConfig(
+            server=config.server,
+            sync=config.sync,
+            default_space=slug,
+            spaces_dir=config.spaces_dir,
+        )
+        self.save_config(updated)
+        logger.info("Default space set to %s", slug)
 
     def load_credentials(self) -> dict[str, str]:
         """Load credentials (JWT token, GitHub username)."""

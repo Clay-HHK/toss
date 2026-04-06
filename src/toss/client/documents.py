@@ -6,7 +6,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from .base import TossClient
+from .base import TossAPIError, TossClient
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +33,10 @@ class DocumentClient:
         Returns:
             Server response with document id and status.
         """
+        max_file_size = 50 * 1024 * 1024  # 50MB
+        if file_path.stat().st_size > max_file_size:
+            raise TossAPIError(413, "File too large (max 50MB)")
+
         content = file_path.read_bytes()
         content_type = _guess_content_type(file_path.name)
 

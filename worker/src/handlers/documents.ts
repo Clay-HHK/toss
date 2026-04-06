@@ -27,6 +27,15 @@ export async function handlePushDocument(
     return Response.json({ error: "recipient is required" }, { status: 400 });
   }
 
+  // File size limit: 50MB
+  const MAX_FILE_SIZE = 50 * 1024 * 1024;
+  if (file.size > MAX_FILE_SIZE) {
+    return Response.json(
+      { error: "File too large", detail: "Maximum file size is 50MB" },
+      { status: 413 },
+    );
+  }
+
   // Resolve recipient: try alias first, then github username
   const resolved = await resolveRecipient(env, userId!, recipientName);
   if (!resolved) {

@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import getpass
+import json
 import sys
+from pathlib import Path
+from typing import Any
 
 import click
 from rich.console import Console
@@ -12,6 +15,7 @@ from toss.auth.github import AuthError, GitHubAuth
 from toss.auth.token_store import TokenStore
 from toss.cli.contacts import contacts
 from toss.cli.push_pull import inbox, pull, push
+from toss.cli.spaces import space
 from toss.config.manager import ConfigManager
 
 console = Console()
@@ -19,6 +23,47 @@ console = Console()
 
 def _get_config_manager() -> ConfigManager:
     return ConfigManager()
+
+
+def _install_claude_hooks() -> None:
+    """Write Toss hooks into ~/.claude/settings.json (merge, don't overwrite)."""
+    hooks_dir = Path(__file__).resolve().parents[3] / "hooks"
+    inbox_hook = str(hooks_dir / "toss-inbox-check.sh")
+    sync_hook = str(hooks_dir / "toss-sync.sh")
+
+    settings_path = Path.home() / ".claude" / "settings.json"
+    settings: dict[str, Any] = {}
+    if settings_path.exists():
+        try:
+            settings = json.loads(settings_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    hooks = settings.setdefault("hooks", {})
+
+    # SessionStart hook
+    session_start: list[dict[str, Any]] = hooks.setdefault("SessionStart", [])
+    inbox_entry = {"type": "command", "command": inbox_hook}
+    if not _hook_exists(session_start, inbox_hook):
+        session_start.append(inbox_entry)
+
+    # PostToolUse hook
+    post_tool: list[dict[str, Any]] = hooks.setdefault("PostToolUse", [])
+    sync_entry = {"type": "command", "command": sync_hook, "matcher": "Write|Edit"}
+    if not _hook_exists(post_tool, sync_hook):
+        post_tool.append(sync_entry)
+
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+    settings_path.write_text(
+        json.dumps(settings, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    console.print(f"[green]Hooks installed[/green] in {settings_path}")
+
+
+def _hook_exists(hook_list: list[dict[str, Any]], command: str) -> bool:
+    """Check if a hook with the given command already exists in the list."""
+    return any(h.get("command") == command for h in hook_list)
 
 
 @click.group(invoke_without_command=True)
@@ -35,27 +80,36 @@ main.add_command(contacts)
 main.add_command(push)
 main.add_command(pull)
 main.add_command(inbox)
+main.add_command(space)
 
 
 @main.command()
-def init() -> None:
+@click.option(
+    "--install-hooks",
+    is_flag=True,
+    default=False,
+    help="Install Claude Code hooks for inbox check and auto-sync.",
+)
+def init(install_hooks: bool) -> None:
     """Initialize Toss configuration directory (~/.toss/)."""
     cm = _get_config_manager()
 
     if cm.is_initialized:
         console.print("[yellow]Already initialized.[/yellow]", f"Config dir: {cm.base_dir}")
-        return
+    else:
+        cm.ensure_dirs()
+        config = cm.load_config()
+        cm.save_config(config)
+        console.print("[green]Initialized![/green]", f"Config dir: {cm.base_dir}")
+        console.print(
+            "\n[bold]Next steps:[/bold]\n"
+            "  1. Edit [cyan]~/.toss/config.yaml[/cyan] and set [bold]base_url[/bold]"
+            " to your team's Worker URL\n"
+            "  2. Run [bold]toss login --pat[/bold] to authenticate with GitHub"
+        )
 
-    cm.ensure_dirs()
-    config = cm.load_config()
-    cm.save_config(config)
-    console.print("[green]Initialized![/green]", f"Config dir: {cm.base_dir}")
-    console.print(
-        "\n[bold]Next steps:[/bold]\n"
-        "  1. Edit [cyan]~/.toss/config.yaml[/cyan] and set [bold]base_url[/bold]"
-        " to your team's Worker URL\n"
-        "  2. Run [bold]toss login --pat[/bold] to authenticate with GitHub"
-    )
+    if install_hooks:
+        _install_claude_hooks()
 
 
 @main.command()

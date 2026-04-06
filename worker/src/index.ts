@@ -4,6 +4,7 @@
 
 import { extractBearerToken, verifyJWT } from "./middleware/auth";
 import { addCORSHeaders, handleCORS } from "./middleware/cors";
+import { checkRateLimit } from "./middleware/ratelimit";
 import { matchRoute } from "./router";
 import type { Env } from "./types";
 
@@ -41,17 +42,52 @@ export default {
       }
 
       userId = payload.sub;
+
+      // Rate limiting (applied to authenticated requests only)
+      const rateResult = await checkRateLimit(env, userId);
+      if (!rateResult.allowed) {
+        return addCORSHeaders(
+          new Response(
+            JSON.stringify({ error: "Rate limited. Please wait a moment and try again." }),
+            {
+              status: 429,
+              headers: {
+                "Content-Type": "application/json",
+                "X-RateLimit-Remaining": "0",
+              },
+            },
+          ),
+        );
+      }
     }
 
     // Execute handler
     try {
       const response = await route.handler(request, env, params, userId);
-      return addCORSHeaders(response);
+      const finalResponse = addCORSHeaders(response);
+      return finalResponse;
     } catch (e) {
       console.error("Handler error:", e);
       return addCORSHeaders(
         Response.json({ error: "Internal server error" }, { status: 500 }),
       );
     }
+  },
+
+  async scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext): Promise<void> {
+    // Clean up expired documents (older than 30 days, still pending)
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const expired = await env.TOSS_DB.prepare(
+      `SELECT id, r2_key FROM documents WHERE created_at < ? AND status = 'pending'`,
+    ).bind(thirtyDaysAgo).all();
+
+    for (const doc of expired.results) {
+      await env.TOSS_STORAGE.delete(doc.r2_key as string);
+      await env.TOSS_DB.prepare(
+        `UPDATE documents SET status = 'expired' WHERE id = ?`,
+      ).bind(doc.id).run();
+    }
+
+    console.log(`Cleanup: expired ${expired.results.length} documents`);
   },
 } satisfies ExportedHandler<Env>;
