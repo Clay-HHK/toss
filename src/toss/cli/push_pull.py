@@ -245,8 +245,9 @@ def pull(dest: str, pick: bool) -> None:
 
 
 @click.command()
-def inbox() -> None:
-    """List pending documents without downloading."""
+@click.option("--plain", is_flag=True, help="Non-interactive table output")
+def inbox(plain: bool) -> None:
+    """Browse your inbox. Navigate with j/k, Enter to preview, p to pull."""
     try:
         dc = _get_doc_client()
         items = dc.list_inbox()
@@ -258,6 +259,18 @@ def inbox() -> None:
         console.print("[yellow]Inbox empty.[/yellow]")
         return
 
+    # Non-interactive mode (piped output, --plain flag, or non-TTY)
+    if plain or not sys.stdout.isatty():
+        _print_inbox_table(items)
+        return
+
+    from toss.cli.inbox_tui import run_inbox_browser
+
+    run_inbox_browser(dc, items)
+
+
+def _print_inbox_table(items: list[dict]) -> None:
+    """Static table output for non-interactive use."""
     table = Table(title=f"Inbox ({len(items)} pending)")
     table.add_column("File", style="bold")
     table.add_column("From")
@@ -275,10 +288,6 @@ def inbox() -> None:
         )
 
     console.print(table)
-    console.print(
-        "\nRun [bold]toss pull[/bold] to download all,"
-        " or [bold]toss pull --pick[/bold] to select."
-    )
 
 
 def _human_size(size_bytes: int) -> str:

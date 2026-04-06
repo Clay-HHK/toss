@@ -145,6 +145,70 @@ export async function handleDownloadDocument(
 }
 
 /**
+ * GET /api/v1/documents/inbox/:id/preview
+ * Returns file content as text (for text files) or base64 (for binary).
+ * Does NOT mark as pulled.
+ */
+export async function handlePreviewDocument(
+  _req: Request,
+  env: Env,
+  params: Record<string, string>,
+  userId?: string,
+): Promise<Response> {
+  const docId = params.id;
+
+  const doc = await env.TOSS_DB
+    .prepare("SELECT * FROM documents WHERE id = ? AND recipient_id = ?")
+    .bind(docId, userId!)
+    .first<DocumentRow>();
+
+  if (!doc) {
+    return Response.json({ error: "Document not found" }, { status: 404 });
+  }
+
+  const object = await downloadFromR2(env.TOSS_STORAGE, doc.r2_key);
+  if (!object) {
+    return Response.json({ error: "File not found in storage" }, { status: 404 });
+  }
+
+  const bytes = await object.arrayBuffer();
+  const isText = (doc.content_type || "").startsWith("text/")
+    || ["application/json", "application/yaml", "application/xml"].some(
+      t => (doc.content_type || "").includes(t),
+    );
+
+  // Limit preview to 64KB
+  const maxPreview = 64 * 1024;
+  const truncated = bytes.byteLength > maxPreview;
+  const slice = truncated ? bytes.slice(0, maxPreview) : bytes;
+
+  if (isText) {
+    const text = new TextDecoder("utf-8", { fatal: false }).decode(slice);
+    return Response.json({
+      filename: doc.filename,
+      content_type: doc.content_type,
+      size_bytes: doc.size_bytes,
+      preview_type: "text",
+      content: text,
+      truncated,
+    });
+  }
+
+  // Binary: return base64
+  const b64 = btoa(
+    Array.from(new Uint8Array(slice), b => String.fromCharCode(b)).join(""),
+  );
+  return Response.json({
+    filename: doc.filename,
+    content_type: doc.content_type,
+    size_bytes: doc.size_bytes,
+    preview_type: "binary",
+    content: b64,
+    truncated,
+  });
+}
+
+/**
  * GET /api/v1/documents/sent
  */
 export async function handleListSent(

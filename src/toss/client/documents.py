@@ -54,6 +54,10 @@ class DocumentClient:
         data = self._client.get("/api/v1/documents/inbox")
         return data.get("documents", [])
 
+    def preview(self, doc_id: str) -> dict[str, Any]:
+        """Fetch a preview of a document without marking it as pulled."""
+        return self._client.get(f"/api/v1/documents/inbox/{doc_id}/preview")
+
     def pull(self, doc_id: str, dest_dir: Path) -> Path:
         """Download a document from inbox.
 
