@@ -1,0 +1,29 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+*.egg
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# Environment
+.env
+.env.*
+
+# a2a local config
+.a2a/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# Worker
+worker/node_modules/
+worker/dist/
+worker/.wrangler/

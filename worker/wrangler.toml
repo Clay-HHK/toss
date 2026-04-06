@@ -1,0 +1,24 @@
+name = "toss-api"
+main = "src/index.ts"
+compatibility_date = "2025-04-01"
+
+# D1 Database
+[[d1_databases]]
+binding = "TOSS_DB"
+database_name = "toss-db"
+database_id = "<YOUR_D1_DATABASE_ID>"
+
+# R2 Bucket
+[[r2_buckets]]
+binding = "TOSS_STORAGE"
+bucket_name = "toss-storage"
+
+# KV Namespace
+[[kv_namespaces]]
+binding = "TOSS_KV"
+id = "<YOUR_KV_NAMESPACE_ID>"
+
+# Secrets (set via `wrangler secret put`):
+# - JWT_SECRET
+# - GITHUB_CLIENT_ID
+# - GITHUB_CLIENT_SECRET
