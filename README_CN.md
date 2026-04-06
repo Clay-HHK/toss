@@ -34,9 +34,11 @@ AI agent 工具（Claude Code、Codex 等）会产生大量文档（分析报告
 - **交互模式**：文件选择器、联系人选择器，不用记参数
 - **联系人**：给常用协作者设置别名（用 `xiaoming` 代替 `@zhangsan123`）
 - **收件箱**：查看待接收文件，不下载
-- **共享空间**（即将推出）：多人读写同一个文档集合
-- **MCP Server**（即将推出）：Claude Code / Cursor 原生调用 Toss
-- **Claude Code Hooks**（即将推出）：保存文件时自动同步
+- **共享空间**：多人读写同一个文档集合，基于 SHA-256 差异同步
+- **MCP Server**：Claude Code / Cursor 原生调用 Toss
+- **Claude Code Hooks**：启动时检查收件箱，保存文件时自动同步
+- **速率限制**：每用户 60 次请求/分钟
+- **自动清理**：过期文档 30 天后自动清理
 
 ## 架构
 
@@ -194,6 +196,67 @@ toss pull --pick
 # → 下载完成！
 ```
 
+### 共享空间
+
+为团队创建一个共享文档集合。
+
+```bash
+# 创建空间
+toss space create my-project --slug my-proj
+
+# 添加团队成员
+toss space add-member my-proj zhangsan
+
+# 同步文件（在你的项目目录下）
+toss space sync my-proj --dir .
+
+# 设置默认空间（之后可以省略 slug）
+toss space set-default my-proj
+toss space sync
+
+# 查看你的空间
+toss space list
+```
+
+同步引擎会在本地计算 SHA-256 哈希，发送清单到服务端，只传输有变化的文件。冲突文件会保存为 `filename.server.ext`，需要手动解决。
+
+### MCP Server（Claude Code / Cursor）
+
+Toss 内置了 MCP 服务，让 Claude Code 和 Cursor 可以原生调用 Toss 工具。
+
+```bash
+# 安装 MCP 支持
+uv sync --extra mcp
+```
+
+添加到你的 Claude Code 或 Cursor MCP 配置（`.mcp.json`）：
+
+```json
+{
+  "mcpServers": {
+    "toss": {
+      "command": "uv",
+      "args": ["run", "--directory", "/path/to/toss", "python", "-m", "toss.mcp.server"]
+    }
+  }
+}
+```
+
+可用的 MCP 工具：`push_document`、`pull_documents`、`list_inbox`、`list_contacts`、`add_contact`、`remove_contact`。
+
+### Claude Code Hooks
+
+启动时自动检查收件箱，保存文件时自动同步空间。
+
+```bash
+# 安装 hooks 到 Claude Code 设置
+toss init --install-hooks
+```
+
+这会向 `~/.claude/settings.json` 添加两个 hook：
+- **SessionStart**：检查 Toss 收件箱，显示待接收数量
+- **PostToolUse (Write/Edit)**：写入空间目录中的文件时自动同步
+
 ## 两人协作示例
 
 ```
@@ -244,6 +307,12 @@ toss pull --pick
 | `toss inbox` | 查看待接收文档 |
 | `toss pull [--to dir]` | 拉取全部待接收文档 |
 | `toss pull --pick` | 交互式选择要拉取的文件 |
+| `toss space create <name> [--slug]` | 创建共享空间 |
+| `toss space list` | 查看你的空间 |
+| `toss space add-member <slug> <github>` | 添加空间成员 |
+| `toss space sync [slug] [--dir .]` | 与空间同步文件 |
+| `toss space set-default <slug>` | 设置默认空间 |
+| `toss init --install-hooks` | 安装 Claude Code hooks |
 
 ## 配置
 
@@ -253,7 +322,7 @@ toss pull --pick
 ~/.toss/
 ├── config.yaml         # 服务器地址、同步设置
 ├── credentials.yaml    # JWT 令牌（chmod 600）
-└── spaces/             # 共享空间文件（即将推出）
+└── spaces/             # 共享空间本地文件
 ```
 
 ### config.yaml
@@ -315,11 +384,18 @@ toss/
 │   ├── cli/                     # Click 命令
 │   │   ├── main.py              # init, login, whoami, logout
 │   │   ├── contacts.py          # contacts add/list/remove
-│   │   └── push_pull.py         # push, pull, inbox（支持交互模式）
+│   │   ├── push_pull.py         # push, pull, inbox（支持交互模式）
+│   │   └── spaces.py           # space create/list/sync
 │   ├── client/                  # HTTP 客户端 SDK
 │   │   ├── base.py              # TossClient (httpx)
 │   │   ├── contacts.py          # ContactClient
-│   │   └── documents.py         # DocumentClient
+│   │   ├── documents.py         # DocumentClient
+│   │   └── spaces.py           # SpaceClient
+│   ├── sync/                    # 空间同步引擎
+│   │   ├── state.py             # 本地清单（SHA-256）
+│   │   └── engine.py            # 差异计算 + 上传/下载
+│   ├── mcp/                     # MCP 服务
+│   │   └── server.py            # FastMCP，6 个工具
 │   ├── config/                  # 配置管理
 │   │   ├── models.py            # Frozen dataclasses
 │   │   └── manager.py           # ConfigManager
@@ -329,13 +405,18 @@ toss/
 │
 ├── worker/                      # Cloudflare Worker (TypeScript)
 │   ├── src/
-│   │   ├── index.ts             # 入口
+│   │   ├── index.ts             # 入口 + 定时清理
 │   │   ├── router.ts            # 路由定义
-│   │   ├── handlers/            # API 处理器
-│   │   ├── middleware/          # 认证、CORS
+│   │   ├── handlers/            # API 处理器（auth, contacts, documents, spaces, cleanup）
+│   │   ├── middleware/          # 认证、CORS、速率限制
 │   │   └── services/            # 数据库、存储、GitHub
 │   └── schema.sql               # D1 数据库 schema
 │
+├── hooks/                       # Claude Code hooks
+│   ├── toss-inbox-check.sh      # 启动时检查收件箱
+│   └── toss-sync.sh             # 保存文件时自动同步
+│
+├── .mcp.json                    # MCP 服务配置
 └── pyproject.toml               # Python 项目配置
 ```
 
@@ -346,9 +427,11 @@ toss/
 - [x] 文档推送 / 拉取
 - [x] 交互式文件选择
 - [x] Cloudflare Worker 后端（D1 + R2）
-- [ ] 共享空间（多人文档同步）
-- [ ] MCP Server（Claude Code / Cursor 原生集成）
-- [ ] Claude Code Hooks（保存文件时自动同步）
+- [x] 共享空间（多人文档同步）
+- [x] MCP Server（Claude Code / Cursor 原生集成）
+- [x] Claude Code Hooks（保存文件时自动同步）
+- [x] 速率限制和文件大小限制
+- [x] 过期文档自动清理
 - [ ] 端到端加密
 - [ ] Web UI 控制台
 

@@ -34,9 +34,11 @@ AI agent tools like Claude Code and Codex generate documents (analysis reports, 
 - **Interactive Mode**: File picker, contact selector, no need to remember arguments
 - **Contacts**: Set aliases for frequent collaborators (`xiaoming` instead of `@zhangsan123`)
 - **Inbox**: Check what's waiting for you without downloading
-- **Shared Spaces** (coming soon): Multiple users read/write to a shared document collection
-- **MCP Server** (coming soon): Let Claude Code/Cursor call Toss tools natively
-- **Claude Code Hooks** (coming soon): Auto-sync on file save
+- **Shared Spaces**: Multiple users read/write to a shared document collection
+- **MCP Server**: Let Claude Code/Cursor call Toss tools natively
+- **Claude Code Hooks**: Auto-sync on file save, inbox check on session start
+- **Rate Limiting**: 60 requests/min per user
+- **Auto Cleanup**: Expired documents cleaned up after 30 days
 
 ## Architecture
 
@@ -194,6 +196,67 @@ toss pull --pick
 # → Selected files downloaded!
 ```
 
+### Shared Spaces
+
+Create a shared document collection for your team.
+
+```bash
+# Create a space
+toss space create my-project --slug my-proj
+
+# Add team members
+toss space add-member my-proj zhangsan
+
+# Sync files (in your project directory)
+toss space sync my-proj --dir .
+
+# Set a default space (so you can omit the slug)
+toss space set-default my-proj
+toss space sync
+
+# List your spaces
+toss space list
+```
+
+The sync engine computes SHA-256 hashes locally, sends a manifest to the server, and only transfers changed files. Conflicts are saved as `filename.server.ext` for manual resolution.
+
+### MCP Server (Claude Code / Cursor)
+
+Toss includes an MCP server so Claude Code and Cursor can call Toss tools natively.
+
+```bash
+# Install with MCP support
+uv sync --extra mcp
+```
+
+Add to your Claude Code or Cursor MCP config (`.mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "toss": {
+      "command": "uv",
+      "args": ["run", "--directory", "/path/to/toss", "python", "-m", "toss.mcp.server"]
+    }
+  }
+}
+```
+
+Available MCP tools: `push_document`, `pull_documents`, `list_inbox`, `list_contacts`, `add_contact`, `remove_contact`.
+
+### Claude Code Hooks
+
+Auto-check inbox on session start and auto-sync spaces on file save.
+
+```bash
+# Install hooks into Claude Code settings
+toss init --install-hooks
+```
+
+This adds two hooks to `~/.claude/settings.json`:
+- **SessionStart**: Checks your Toss inbox and shows pending count
+- **PostToolUse (Write/Edit)**: Auto-syncs if writing to a space directory
+
 ## Two-Person Collaboration Example
 
 ```
@@ -244,6 +307,12 @@ You (Clay-HHK)                         Your Collaborator (zhangsan)
 | `toss inbox` | List pending documents |
 | `toss pull [--to dir]` | Pull all pending documents |
 | `toss pull --pick` | Interactively select which files to pull |
+| `toss space create <name> [--slug]` | Create a shared space |
+| `toss space list` | List your spaces |
+| `toss space add-member <slug> <github>` | Add member to a space |
+| `toss space sync [slug] [--dir .]` | Sync files with a space |
+| `toss space set-default <slug>` | Set default space for sync |
+| `toss init --install-hooks` | Install Claude Code hooks |
 
 ## Configuration
 
@@ -253,7 +322,7 @@ Config is stored in `~/.toss/`:
 ~/.toss/
 ├── config.yaml         # Server URL, sync settings
 ├── credentials.yaml    # JWT token (chmod 600)
-└── spaces/             # Shared space files (coming soon)
+└── spaces/             # Shared space local files
 ```
 
 ### config.yaml
@@ -315,11 +384,18 @@ toss/
 │   ├── cli/                     # Click commands
 │   │   ├── main.py              # init, login, whoami, logout
 │   │   ├── contacts.py          # contacts add/list/remove
-│   │   └── push_pull.py         # push, pull, inbox
+│   │   ├── push_pull.py         # push, pull, inbox
+│   │   └── spaces.py           # space create/list/sync
 │   ├── client/                  # HTTP client SDK
 │   │   ├── base.py              # TossClient (httpx)
 │   │   ├── contacts.py          # ContactClient
-│   │   └── documents.py         # DocumentClient
+│   │   ├── documents.py         # DocumentClient
+│   │   └── spaces.py           # SpaceClient
+│   ├── sync/                    # Space sync engine
+│   │   ├── state.py             # Local manifest (SHA-256)
+│   │   └── engine.py            # Diff + upload/download
+│   ├── mcp/                     # MCP Server
+│   │   └── server.py            # FastMCP with 6 tools
 │   ├── config/                  # Configuration
 │   │   ├── models.py            # Frozen dataclasses
 │   │   └── manager.py           # ConfigManager
@@ -329,13 +405,18 @@ toss/
 │
 ├── worker/                      # Cloudflare Worker (TypeScript)
 │   ├── src/
-│   │   ├── index.ts             # Entry point
+│   │   ├── index.ts             # Entry point + cron handler
 │   │   ├── router.ts            # Route definitions
-│   │   ├── handlers/            # API handlers
-│   │   ├── middleware/          # Auth, CORS
+│   │   ├── handlers/            # API handlers (auth, contacts, documents, spaces, cleanup)
+│   │   ├── middleware/          # Auth, CORS, rate limiting
 │   │   └── services/            # DB, Storage, GitHub
 │   └── schema.sql               # D1 database schema
 │
+├── hooks/                       # Claude Code hooks
+│   ├── toss-inbox-check.sh      # SessionStart: inbox count
+│   └── toss-sync.sh             # PostToolUse: auto-sync
+│
+├── .mcp.json                    # MCP server config
 └── pyproject.toml               # Python project config
 ```
 
@@ -346,9 +427,11 @@ toss/
 - [x] Document push/pull
 - [x] Interactive file selection
 - [x] Cloudflare Worker backend (D1 + R2)
-- [ ] Shared Spaces (multi-user document sync)
-- [ ] MCP Server (Claude Code / Cursor native integration)
-- [ ] Claude Code Hooks (auto-sync on file save)
+- [x] Shared Spaces (multi-user document sync)
+- [x] MCP Server (Claude Code / Cursor native integration)
+- [x] Claude Code Hooks (auto-sync on file save)
+- [x] Rate limiting and file size limits
+- [x] Expired document auto-cleanup
 - [ ] End-to-end encryption
 - [ ] Web UI dashboard
 
