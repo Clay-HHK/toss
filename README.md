@@ -35,6 +35,7 @@ AI agent tools like Claude Code and Codex generate documents (analysis reports, 
 - **Contacts**: Set aliases for frequent collaborators (`xiaoming` instead of `@zhangsan123`)
 - **Inbox**: Check what's waiting for you without downloading
 - **Groups**: Create groups, invite members with a code, push files to everyone at once
+- **Multi-Profile**: Belong to multiple teams, switch between them with `toss switch <name>`
 - **Zero-Config Join**: `toss join server/CODE` auto-configures everything in one command
 - **Shared Spaces**: Multiple users read/write to a shared document collection
 - **MCP Server**: Let Claude Code/Cursor call Toss tools natively (10 tools)
@@ -377,6 +378,10 @@ You (Clay-HHK)                         Your Collaborator (zhangsan)
 | `toss space add-member <slug> <github>` | Add member to a space |
 | `toss space sync [slug] [--dir .]` | Sync files with a space |
 | `toss space set-default <slug>` | Set default space for sync |
+| `toss switch <name>` | Switch active profile (work team) |
+| `toss profile list` | List all profiles |
+| `toss profile add <name> <url>` | Add a profile manually |
+| `toss profile remove <name>` | Remove a profile |
 | `toss init --install-hooks` | Install Claude Code hooks |
 
 ## Configuration
@@ -512,6 +517,7 @@ toss/
 - [x] npm package (`npx toss-cli`)
 - [x] Portable hooks and MCP config (no hardcoded paths)
 - [x] Claude Code Skills (natural language push/pull)
+- [x] Multi-profile support (switch between work teams)
 - [ ] End-to-end encryption
 - [ ] Web UI dashboard
 

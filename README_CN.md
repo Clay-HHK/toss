@@ -35,6 +35,7 @@ AI agent 工具（Claude Code、Codex 等）会产生大量文档（分析报告
 - **联系人**：给常用协作者设置别名（用 `xiaoming` 代替 `@zhangsan123`）
 - **收件箱**：查看待接收文件，不下载
 - **群组**：创建群组，通过邀请码邀请成员，一次推送文件给所有人
+- **多团队切换**：同时加入多个团队，`toss switch <name>` 一键切换
 - **零配置加入**：`toss join server/CODE` 一条命令自动配置一切
 - **共享空间**：多人读写同一个文档集合，基于 SHA-256 差异同步
 - **MCP Server**：Claude Code / Cursor 原生调用 Toss（10 个工具）
@@ -377,6 +378,10 @@ Claude Code 会自动识别这些短语并执行对应的 `toss` 命令。
 | `toss space add-member <slug> <github>` | 添加空间成员 |
 | `toss space sync [slug] [--dir .]` | 与空间同步文件 |
 | `toss space set-default <slug>` | 设置默认空间 |
+| `toss switch <name>` | 切换当前团队（profile） |
+| `toss profile list` | 查看所有 profile |
+| `toss profile add <name> <url>` | 手动添加 profile |
+| `toss profile remove <name>` | 删除 profile |
 | `toss init --install-hooks` | 安装 Claude Code hooks |
 
 ## 配置
@@ -512,6 +517,7 @@ toss/
 - [x] npm 包（`npx toss-cli`）
 - [x] 可移植的 hooks 和 MCP 配置（无硬编码路径）
 - [x] Claude Code Skills（自然语言推送 / 拉取）
+- [x] 多团队 profile 切换
 - [ ] 端到端加密
 - [ ] Web UI 控制台
 
