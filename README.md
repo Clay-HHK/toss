@@ -39,6 +39,7 @@ AI agent tools like Claude Code and Codex generate documents (analysis reports, 
 - **Shared Spaces**: Multiple users read/write to a shared document collection
 - **MCP Server**: Let Claude Code/Cursor call Toss tools natively (10 tools)
 - **Claude Code Hooks**: Auto-sync on file save, inbox check on session start
+- **Claude Code Skills**: Natural language wrappers — say "push report.md to xiaoming" instead of typing CLI flags
 - **Rate Limiting**: 60 requests/min per user
 - **Auto Cleanup**: Expired documents cleaned up after 30 days
 
@@ -293,6 +294,27 @@ This adds two hooks to `~/.claude/settings.json`:
 - **SessionStart**: Checks your Toss inbox and shows pending count
 - **PostToolUse (Write/Edit)**: Auto-syncs if writing to a space directory
 
+### Claude Code Skills
+
+The `skills/` directory contains two Claude Code skills that let you operate Toss with natural language inside Claude Code — no need to remember command syntax.
+
+**Install** (copy to your Claude Code skills directory):
+
+```bash
+cp -r skills/toss-push skills/toss-pull ~/.claude/skills/
+```
+
+**toss-push** — trigger phrases:
+- "push report.md to xiaoming"
+- "send data.csv and notes.md to @zhangsan with a note saying check this"
+
+**toss-pull** — trigger phrases:
+- "pull my inbox" / "download files from toss"
+- "what did people send me?" (lists without downloading)
+- "pull to ~/Downloads"
+
+Claude Code automatically recognizes these phrases and runs the right `toss` command.
+
 ## Two-Person Collaboration Example
 
 ```
@@ -465,6 +487,10 @@ toss/
 │   ├── toss-inbox-check.sh      # SessionStart: inbox count
 │   └── toss-sync.sh             # PostToolUse: auto-sync
 │
+├── skills/                      # Claude Code skills (natural language interface)
+│   ├── toss-push/skill.md       # "push report.md to xiaoming"
+│   └── toss-pull/skill.md       # "pull my inbox"
+│
 ├── .mcp.json                    # MCP server config
 └── pyproject.toml               # Python project config
 ```
@@ -485,6 +511,7 @@ toss/
 - [x] Zero-config join (`toss join server/CODE`)
 - [x] npm package (`npx toss-cli`)
 - [x] Portable hooks and MCP config (no hardcoded paths)
+- [x] Claude Code Skills (natural language push/pull)
 - [ ] End-to-end encryption
 - [ ] Web UI dashboard
 

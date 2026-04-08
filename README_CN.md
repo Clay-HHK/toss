@@ -39,6 +39,7 @@ AI agent 工具（Claude Code、Codex 等）会产生大量文档（分析报告
 - **共享空间**：多人读写同一个文档集合，基于 SHA-256 差异同步
 - **MCP Server**：Claude Code / Cursor 原生调用 Toss（10 个工具）
 - **Claude Code Hooks**：启动时检查收件箱，保存文件时自动同步
+- **Claude Code Skills**：自然语言封装，说"把 report.md 发给 xiaoming"即可，无需记 CLI 参数
 - **速率限制**：每用户 60 次请求/分钟
 - **自动清理**：过期文档 30 天后自动清理
 
@@ -293,6 +294,27 @@ toss init --install-hooks
 - **SessionStart**：检查 Toss 收件箱，显示待接收数量
 - **PostToolUse (Write/Edit)**：写入空间目录中的文件时自动同步
 
+### Claude Code Skills
+
+`skills/` 目录下包含两个 Claude Code skill，让你在 Claude Code 里用自然语言操作 Toss，无需记忆命令参数。
+
+**安装**（复制到你的 Claude Code skills 目录）：
+
+```bash
+cp -r skills/toss-push skills/toss-pull ~/.claude/skills/
+```
+
+**toss-push** — 触发短语示例：
+- "把 report.md 发给 xiaoming"
+- "push data.csv 和 notes.md 给 @zhangsan，附言：帮忙看看"
+
+**toss-pull** — 触发短语示例：
+- "拉取我的收件箱" / "下载 toss 里的文件"
+- "有人给我发东西了吗？"（只列出，不下载）
+- "pull 到 ~/Downloads"
+
+Claude Code 会自动识别这些短语并执行对应的 `toss` 命令。
+
 ## 两人协作示例
 
 ```
@@ -465,6 +487,10 @@ toss/
 │   ├── toss-inbox-check.sh      # 启动时检查收件箱
 │   └── toss-sync.sh             # 保存文件时自动同步
 │
+├── skills/                      # Claude Code skills（自然语言接口）
+│   ├── toss-push/skill.md       # "把 report.md 发给 xiaoming"
+│   └── toss-pull/skill.md       # "拉取我的收件箱"
+│
 ├── .mcp.json                    # MCP 服务配置
 └── pyproject.toml               # Python 项目配置
 ```
@@ -485,6 +511,7 @@ toss/
 - [x] 零配置加入（`toss join server/CODE`）
 - [x] npm 包（`npx toss-cli`）
 - [x] 可移植的 hooks 和 MCP 配置（无硬编码路径）
+- [x] Claude Code Skills（自然语言推送 / 拉取）
 - [ ] 端到端加密
 - [ ] Web UI 控制台
 
