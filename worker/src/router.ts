@@ -36,6 +36,11 @@ import {
   handleGroupPush,
 } from "./handlers/groups";
 import {
+  handleBatchGetKeys,
+  handleEnrollKey,
+  handleGetKey,
+} from "./handlers/keys";
+import {
   handleCreateSpace,
   handleListSpaces,
   handleAddMember,
@@ -99,6 +104,11 @@ export const routes: Route[] = [
   route("POST", "/api/v1/spaces/:slug/files/ticket", handleMintSpaceFileTicket),
   route("GET", "/api/v1/spaces/:slug/files/download", handleDownloadSpaceFile),
 
+  // Keys (T2-4: Tier 2 public key directory)
+  route("POST", "/api/v1/keys", handleEnrollKey),
+  route("GET", "/api/v1/keys/batch", handleBatchGetKeys),
+  route("GET", "/api/v1/keys/:username", handleGetKey),
+
   // Groups
   route("POST", "/api/v1/groups", handleCreateGroup),
   route("GET", "/api/v1/groups", handleListGroups),
@@ -139,6 +149,7 @@ export const SERVER_FEATURES: readonly string[] = [
   "download-ticket", // T1-2: short-lived download tickets via /api/v1/blobs/:ticket
   "device-bound-jwt", // T1-4: JWT carries jti+dev; /api/v1/auth/revoke blacklists jti
   "field-encryption", // T1-5: documents.message stored via AES-GCM envelope
+  "pubkey-directory", // T2-4: /api/v1/keys enrollment + lookup (Phase A)
 ];
 
 export function matchRoute(

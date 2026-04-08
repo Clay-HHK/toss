@@ -6,7 +6,14 @@ CREATE TABLE IF NOT EXISTS users (
     github_id INTEGER NOT NULL UNIQUE,
     display_name TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    last_seen_at TEXT NOT NULL DEFAULT (datetime('now'))
+    last_seen_at TEXT NOT NULL DEFAULT (datetime('now')),
+    -- T2-3: Tier 2 end-to-end encryption public keys (nullable — users who
+    -- have not enrolled yet are treated as plaintext peers in Phase A).
+    public_key TEXT,
+    signing_public_key TEXT,
+    public_key_proof TEXT,
+    public_key_issued_at INTEGER,
+    public_key_updated_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS contacts (

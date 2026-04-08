@@ -61,6 +61,12 @@ export interface UserRow {
   display_name: string | null;
   created_at: string;
   last_seen_at: string;
+  // T2-3: Tier 2 public keys. All nullable — pre-enrollment users carry NULLs.
+  public_key: string | null;
+  signing_public_key: string | null;
+  public_key_proof: string | null;
+  public_key_issued_at: number | null;
+  public_key_updated_at: string | null;
 }
 
 export interface ContactRow {

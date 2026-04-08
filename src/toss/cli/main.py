@@ -25,6 +25,8 @@ from toss.client.base import TossAPIError, TossClient
 from toss.client.groups import GroupClient
 from toss.config.manager import ConfigManager
 from toss.config.models import ServerConfig, TossConfig
+from toss.crypto.enroll import EnrollError, ensure_enrolled
+from toss.crypto.keystore import auto_detect_keystore
 
 console = Console()
 
@@ -155,6 +157,7 @@ def _login_pat(auth: GitHubAuth, store: TokenStore) -> None:
 
     store.save(result.jwt, result.github_username)
     console.print(f"[green]Logged in as[/green] [bold]{result.github_username}[/bold]")
+    _enroll_keypair_after_login(store, result.jwt, result.github_username)
 
 
 def _login_device_flow(auth: GitHubAuth, store: TokenStore) -> None:
@@ -184,6 +187,61 @@ def _login_device_flow(auth: GitHubAuth, store: TokenStore) -> None:
 
     store.save(result.jwt, result.github_username)
     console.print(f"[green]Logged in as[/green] [bold]{result.github_username}[/bold]")
+    _enroll_keypair_after_login(store, result.jwt, result.github_username)
+
+
+def _enroll_keypair_after_login(
+    store: TokenStore, jwt: str, github_username: str,
+) -> None:
+    """T2-4 Phase A: opportunistically publish the local keypair.
+
+    Enrollment is best-effort:
+
+    - Server that does not advertise ``pubkey-directory`` -> silent skip
+    - Server unreachable, proof rejected, keystore write failure -> warn
+      the user but **do not** abort login. Phase A still works without a
+      published key (plaintext path).
+    """
+    cm = store._cm
+    client = TossClient.from_config(cm)
+    try:
+        features = client.fetch_features() or None
+    except Exception as e:
+        logger.debug("Feature probe failed during enrollment: %s", e)
+        features = None
+
+    keystore = auto_detect_keystore(cm.base_dir, profile=cm.current_profile_name)
+
+    try:
+        result = ensure_enrolled(
+            api_base_url=cm.load_config().server.base_url,
+            jwt=jwt,
+            github_username=github_username,
+            keystore=keystore,
+            server_features=features,
+        )
+    except EnrollError as e:
+        console.print(f"[yellow]Key enrollment skipped:[/yellow] {e}")
+        return
+    except Exception as e:  # keystore / network surprises
+        logger.warning("Enrollment failed unexpectedly: %s", e)
+        console.print(f"[yellow]Key enrollment skipped:[/yellow] {e}")
+        return
+
+    if result.skipped_reason:
+        logger.info("Enrollment skipped: %s", result.skipped_reason)
+        return
+    if result.new_enrollment:
+        console.print(
+            "[green]Published new encryption key[/green] "
+            f"(fingerprint [bold]{result.keypair.fingerprint()}[/bold]). "
+            "Back it up with [bold]toss keys export[/bold].",
+        )
+    else:
+        logger.info(
+            "Key already enrolled (fingerprint=%s)",
+            result.keypair.fingerprint(),
+        )
 
 
 @main.command()
