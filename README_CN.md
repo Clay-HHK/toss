@@ -56,12 +56,12 @@ uvx --from git+https://github.com/Clay-HHK/toss.git toss join toss-api.example.w
 
 | 文档 | 说明 |
 |------|------|
-| [快速入门](docs/getting-started.md) | 安装、配置、第一次推送/拉取 |
-| [命令速查](docs/cli-reference.md) | 全部命令及示例输出 |
-| [多团队切换](docs/profiles.md) | 在不同工作团队之间切换 |
-| [Claude Code 集成](docs/claude-code.md) | MCP Server、Hooks、自然语言 Skills |
-| [自部署指南](docs/self-hosting.md) | 部署自己的 Cloudflare Worker（免费） |
-| [系统架构](docs/architecture.md) | 系统设计与组件说明 |
+| [快速入门](docs/zh/getting-started.md) | 安装、配置、第一次推送/拉取 |
+| [命令速查](docs/zh/cli-reference.md) | 全部命令及示例输出 |
+| [多团队切换](docs/zh/profiles.md) | 在不同工作团队之间切换 |
+| [Claude Code 集成](docs/zh/claude-code.md) | MCP Server、Hooks、自然语言 Skills |
+| [自部署指南](docs/zh/self-hosting.md) | 部署自己的 Cloudflare Worker（免费） |
+| [系统架构](docs/zh/architecture.md) | 系统设计与组件说明 |
 
 ## 架构
 
