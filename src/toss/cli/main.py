@@ -1,4 +1,4 @@
-"""Toss CLI entry point: init, login, whoami commands."""
+"""Toss CLI entry point: init, login, whoami, switch commands."""
 
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ from toss.auth.github import AuthError, GitHubAuth
 from toss.auth.token_store import TokenStore
 from toss.cli.contacts import contacts
 from toss.cli.groups import group
+from toss.cli.profiles import profile
 from toss.cli.push_pull import inbox, pull, push
 from toss.cli.spaces import space
 from toss.client.base import TossAPIError, TossClient
@@ -45,13 +46,11 @@ def _install_claude_hooks() -> None:
 
     hooks = settings.setdefault("hooks", {})
 
-    # SessionStart hook
     session_start: list[dict[str, Any]] = hooks.setdefault("SessionStart", [])
     inbox_entry = {"type": "command", "command": inbox_hook}
     if not _hook_exists(session_start, inbox_hook):
         session_start.append(inbox_entry)
 
-    # PostToolUse hook
     post_tool: list[dict[str, Any]] = hooks.setdefault("PostToolUse", [])
     sync_entry = {"type": "command", "command": sync_hook, "matcher": "Write|Edit"}
     if not _hook_exists(post_tool, sync_hook):
@@ -66,7 +65,6 @@ def _install_claude_hooks() -> None:
 
 
 def _hook_exists(hook_list: list[dict[str, Any]], command: str) -> bool:
-    """Check if a hook with the given command already exists in the list."""
     return any(h.get("command") == command for h in hook_list)
 
 
@@ -82,6 +80,7 @@ def main(ctx: click.Context) -> None:
 # Register subcommands
 main.add_command(contacts)
 main.add_command(group)
+main.add_command(profile)
 main.add_command(push)
 main.add_command(pull)
 main.add_command(inbox)
@@ -137,7 +136,6 @@ def login(pat: bool) -> None:
 
 
 def _login_pat(auth: GitHubAuth, store: TokenStore) -> None:
-    """Login with GitHub PAT."""
     token = getpass.getpass("GitHub Personal Access Token: ")
     if not token.strip():
         console.print("[red]Token cannot be empty.[/red]")
@@ -154,7 +152,6 @@ def _login_pat(auth: GitHubAuth, store: TokenStore) -> None:
 
 
 def _login_device_flow(auth: GitHubAuth, store: TokenStore) -> None:
-    """Login with GitHub Device Flow."""
     try:
         device = auth.start_device_flow()
     except AuthError as e:
@@ -183,7 +180,7 @@ def _login_device_flow(auth: GitHubAuth, store: TokenStore) -> None:
 
 @main.command()
 def whoami() -> None:
-    """Show current authenticated identity."""
+    """Show current identity and active profile."""
     cm = _get_config_manager()
     store = TokenStore(cm)
 
@@ -204,13 +201,15 @@ def whoami() -> None:
     console.print(f"[bold]{user_info.get('github_username', 'unknown')}[/bold]")
     display = user_info.get("display_name")
     if display:
-        console.print(f"  Name: {display}")
-    console.print(f"  ID: {user_info.get('id', 'unknown')}")
+        console.print(f"  Name:    {display}")
+    console.print(f"  ID:      {user_info.get('id', 'unknown')}")
+    console.print(f"  Profile: [cyan]{cm.current_profile_name}[/cyan]")
+    console.print(f"  Server:  {config.server.base_url}")
 
 
 @main.command()
 def logout() -> None:
-    """Remove stored credentials."""
+    """Remove stored credentials for the current profile."""
     cm = _get_config_manager()
     store = TokenStore(cm)
 
@@ -224,44 +223,80 @@ def logout() -> None:
 
 
 @main.command()
+@click.argument("name")
+def switch(name: str) -> None:
+    """Switch the active profile (work team).
+
+    \b
+    Example:
+        toss switch work
+        toss switch lab
+    """
+    cm = _get_config_manager()
+    try:
+        cm.switch_profile(name)
+    except KeyError:
+        profiles = cm.list_profiles()
+        console.print(f"[red]Profile '{name}' not found.[/red]")
+        if profiles:
+            console.print(f"Available: {', '.join(profiles)}")
+        else:
+            console.print("No profiles configured. Use [bold]toss join[/bold] to add one.")
+        sys.exit(1)
+
+    config = cm.load_config()
+    store = TokenStore(cm)
+    logged_in = store.is_logged_in
+    status = f"[green]logged in as {store.github_username}[/green]" if logged_in else "[yellow]not logged in[/yellow]"
+
+    console.print(f"[green]Switched[/green] to profile [bold cyan]{name}[/bold cyan]")
+    console.print(f"  Server: {config.server.base_url}")
+    console.print(f"  Auth:   {status}")
+
+    if not logged_in:
+        console.print("\nRun [bold]toss login --pat[/bold] to authenticate for this profile.")
+
+
+@main.command()
 @click.argument("invite_code")
-def join(invite_code: str) -> None:
+@click.option("--profile-name", "-p", default=None, help="Name for this team profile (default: auto-derived from server host)")
+def join(invite_code: str, profile_name: str | None) -> None:
     """Join a group with one command (auto-configures everything).
 
     The invite code contains the server address.
-    Example: toss join toss-api.example.workers.dev/ABCD-1234
+
+    \b
+    Example:
+        toss join toss-api.example.workers.dev/ABCD-1234
+        toss join toss-api.example.workers.dev/ABCD-1234 --profile-name work
     """
-    # 1. Parse invite code: "host/CODE" or plain "CODE"
-    if "/" in invite_code:
-        parts = invite_code.rsplit("/", 1)
-        server_host = parts[0]
-        code = parts[1]
-        base_url = f"https://{server_host}"
-    else:
+    if "/" not in invite_code:
         console.print(
             "[red]Error:[/red] Invite code must include server address.\n"
             "  Format: server.example.com/ABCD-1234"
         )
         sys.exit(1)
 
-    # 2. Auto-init if needed
+    parts = invite_code.rsplit("/", 1)
+    server_host = parts[0]
+    code = parts[1]
+    base_url = f"https://{server_host}"
+
+    # Derive a profile name from the server hostname if not given
+    if not profile_name:
+        profile_name = server_host.split(".")[0].replace("-", "_")
+
     cm = _get_config_manager()
     if not cm.is_initialized:
         cm.ensure_dirs()
         console.print("[green]Initialized[/green] ~/.toss/")
 
-    # 3. Configure base_url
-    config = cm.load_config()
-    updated = TossConfig(
-        server=ServerConfig(base_url=base_url, timeout=config.server.timeout),
-        sync=config.sync,
-        default_space=config.default_space,
-        spaces_dir=config.spaces_dir,
-    )
-    cm.save_config(updated)
-    console.print(f"[green]Configured[/green] server: {base_url}")
+    # Register this server as a named profile and switch to it
+    cm.add_profile(profile_name, base_url)
+    cm.switch_profile(profile_name)
+    console.print(f"[green]Configured[/green] profile [bold]{profile_name}[/bold] -> {base_url}")
 
-    # 4. Login if not logged in
+    # Login if not already authenticated for this profile
     store = TokenStore(cm)
     if not store.is_logged_in:
         console.print("\n[bold]Login required.[/bold] Authenticate with GitHub:")
@@ -270,7 +305,7 @@ def join(invite_code: str) -> None:
             console.print("[red]Token cannot be empty.[/red]")
             sys.exit(1)
 
-        auth = GitHubAuth(base_url, updated.server.timeout)
+        auth = GitHubAuth(base_url, 30)
         try:
             result = auth.authenticate_with_pat(token.strip())
         except AuthError as e:
@@ -278,11 +313,9 @@ def join(invite_code: str) -> None:
             sys.exit(1)
 
         store.save(result.jwt, result.github_username)
-        console.print(
-            f"[green]Logged in as[/green] [bold]{result.github_username}[/bold]"
-        )
+        console.print(f"[green]Logged in as[/green] [bold]{result.github_username}[/bold]")
 
-    # 5. Join the group
+    # Join the group
     try:
         client = TossClient.from_config(cm)
         gc = GroupClient(client)
@@ -292,8 +325,10 @@ def join(invite_code: str) -> None:
             f" group [bold]{result.get('group_name', '?')}[/bold]"
         )
         console.print("\nYou're all set! Try:")
-        console.print("  [bold]toss inbox[/bold]       - check for files")
-        console.print("  [bold]toss group list[/bold]  - see your groups")
+        console.print("  [bold]toss inbox[/bold]            - check for files")
+        console.print("  [bold]toss group list[/bold]       - see your groups")
+        console.print("  [bold]toss profile list[/bold]     - see all your teams")
+        console.print(f"  [bold]toss switch <name>[/bold]   - switch between teams")
     except TossAPIError as e:
         console.print(f"[red]Failed to join:[/red] {e.detail}")
         sys.exit(1)
