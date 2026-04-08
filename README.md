@@ -27,7 +27,7 @@ AI agent tools generate documents you constantly need to share with collaborator
 
 - **Push / Pull** — send files to anyone, download from your inbox
 - **Interactive Mode** — file picker + contact selector, no arguments to remember
-- **Contacts** — set aliases (`xiaoming` instead of `@zhangsan123`)
+- **Contacts** — set aliases (`xiaoming` instead of `#zhangsan123`)
 - **Groups** — push to all members at once, invite with a code
 - **Multi-Profile** — belong to multiple teams, `toss switch <name>` to change context
 - **Shared Spaces** — multi-user document sync (SHA-256 diff, conflict-safe)

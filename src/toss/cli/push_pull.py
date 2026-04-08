@@ -84,7 +84,7 @@ def _interactive_push() -> None:
     if contacts:
         contact_choices = [
             questionary.Choice(
-                title=f"{c.get('alias', '')}  (@{c.get('github_username', '')})",
+                title=f"{c.get('alias', '')}  (#{c.get('github_username', '')})",
                 value=c.get("alias", c.get("github_username", "")),
             )
             for c in contacts
@@ -97,9 +97,9 @@ def _interactive_push() -> None:
         ).ask()
 
         if recipient == "__manual__":
-            recipient = questionary.text("Recipient (alias or @github username):").ask()
+            recipient = questionary.text("Recipient (alias or #github username):").ask()
     else:
-        recipient = questionary.text("Recipient (alias or @github username):").ask()
+        recipient = questionary.text("Recipient (alias or #github username):").ask()
 
     if not recipient:
         console.print("[yellow]No recipient specified.[/yellow]")
@@ -201,7 +201,7 @@ def pull(dest: str, pick: bool) -> None:
                 title=(
                     f"{it.get('filename', '?')}  "
                     f"({_human_size(it.get('size_bytes', 0))}, "
-                    f"from @{it.get('sender_username', '?')})"
+                    f"from #{it.get('sender_username', '?')})"
                 ),
                 value=it,
             )
@@ -237,7 +237,7 @@ def pull(dest: str, pick: bool) -> None:
         try:
             path = dc.pull(item["id"], dest_dir)
             sender = item.get("sender_username", "unknown")
-            console.print(f"  [green]Pulled[/green] {path.name} (from @{sender})")
+            console.print(f"  [green]Pulled[/green] {path.name} (from #{sender})")
         except TossAPIError as e:
             console.print(f"  [red]Failed[/red] {item.get('filename', '?')}: {e.detail}")
 
@@ -281,7 +281,7 @@ def _print_inbox_table(items: list[dict]) -> None:
     for item in items:
         table.add_row(
             item.get("filename", "?"),
-            f"@{item.get('sender_username', '?')}",
+            f"#{item.get('sender_username', '?')}",
             _human_size(item.get("size_bytes", 0)),
             item.get("message") or "",
             item.get("created_at", "")[:16],

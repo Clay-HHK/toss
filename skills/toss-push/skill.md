@@ -12,7 +12,7 @@ Push one or more local files to a recipient via the Toss CLI.
 
 Trigger when the user says things like:
 - "push report.md to xiaoming"
-- "send these files to @zhangsan"
+- "send these files to #zhangsan"
 - "toss this to alice with a note saying check this"
 - "push data.csv and notes.md to bob"
 - "发给 xiaoming: report.pdf"
@@ -23,7 +23,7 @@ Trigger when the user says things like:
 
 Parse the user's message to identify:
 - **Files**: file paths or names mentioned (e.g. `report.md`, `./data/output.csv`)
-- **Recipient**: alias name or `@github_username`
+- **Recipient**: alias name or `#github_username`
 - **Message**: optional note to attach (after "with a note", "saying", "-m", "附言", "备注")
 
 If files are ambiguous (e.g. "this file"), look at the current working directory context or ask the user to clarify.
@@ -50,7 +50,7 @@ Examples:
 toss push report.md xiaoming
 
 # Multiple files, GitHub username
-toss push data.csv notes.md @zhangsan
+toss push data.csv notes.md #zhangsan
 
 # With message
 toss push report.pdf alice -m "check this before Monday"
@@ -67,7 +67,7 @@ Show what was pushed:
 ## Edge Cases
 
 - If the user gives a relative path, run from the current working directory
-- If recipient starts with `@`, pass it as-is; otherwise pass the alias directly
+- If recipient starts with `#`, pass it as-is (strip the `#`); otherwise pass the alias directly
 - If multiple files fail, report each failure separately and continue with the rest
 - If not logged in, suggest running `toss login` first
 

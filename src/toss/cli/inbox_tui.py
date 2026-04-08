@@ -59,7 +59,7 @@ def _render_list(items: list[dict[str, Any]], cursor: int) -> None:
 
     for i, item in enumerate(items):
         filename = item.get("filename", "?")
-        sender = f"@{item.get('sender_username', '?')}"
+        sender = f"#{item.get('sender_username', '?')}"
         size = _human_size(item.get("size_bytes", 0))
         msg = item.get("message") or ""
         time = item.get("created_at", "")[:16]
@@ -88,7 +88,7 @@ def _render_preview(item: dict[str, Any], preview_data: dict[str, Any]) -> None:
     console.clear()
 
     filename = preview_data.get("filename", item.get("filename", "?"))
-    sender = f"@{item.get('sender_username', '?')}"
+    sender = f"#{item.get('sender_username', '?')}"
     size = _human_size(preview_data.get("size_bytes", item.get("size_bytes", 0)))
     ctype = preview_data.get("content_type", "")
 
@@ -214,7 +214,7 @@ def run_inbox_browser(dc: DocumentClient, items: list[dict[str, Any]]) -> None:
                         path = dc.pull(item["id"], dest_dir)
                         console.print(
                             f"  [green]Pulled[/green] {path.name}"
-                            f" (from @{item.get('sender_username', '?')})"
+                            f" (from #{item.get('sender_username', '?')})"
                         )
                     except TossAPIError as e:
                         console.print(

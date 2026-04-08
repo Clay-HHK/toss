@@ -117,7 +117,7 @@ toss push report.md xiaoming -m "帮忙看看"
 toss pull
 # 输出：
 # Pulling 1 file(s)...
-#   Pulled report.md (from @clay-hhk)
+#   Pulled report.md (from #clay-hhk)
 # Done. Files saved to /Users/zhangsan/projects
 ```
 

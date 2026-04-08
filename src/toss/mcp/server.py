@@ -46,7 +46,7 @@ def push_document(
 
     Args:
         file_path: Path to the local file to send.
-        recipient: Alias or @github_username of the recipient.
+        recipient: Alias or #github_username of the recipient.
         message: Optional message to attach.
 
     Returns:

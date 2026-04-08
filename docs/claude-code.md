@@ -25,7 +25,7 @@ cp -r skills/toss-push skills/toss-pull ~/.claude/skills/
 Trigger by saying anything like:
 
 - `"push report.md to xiaoming"`
-- `"send data.csv and notes.md to @zhangsan with a note saying check this"`
+- `"send data.csv and notes.md to #zhangsan with a note saying check this"`
 - `"发给 alice: analysis.pdf"`
 
 Claude Code extracts the files, recipient, and optional message, validates the files exist, then runs:
@@ -58,7 +58,7 @@ toss inbox
 ┏━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━┓
 ┃ File         ┃ From        ┃ Size ┃ Message       ┃ Time             ┃
 ┡━━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━┩
-│ feedback.md  │ @zhangsan   │ 3.4KB│ looks good    │ 2026-04-08 09:10 │
+│ feedback.md  │ #zhangsan   │ 3.4KB│ looks good    │ 2026-04-08 09:10 │
 └──────────────┴─────────────┴──────┴───────────────┴──────────────────┘
 ```
 
@@ -70,7 +70,7 @@ toss pull --to ~/Downloads
 
 ```
 Pulling 1 file(s)...
-  Pulled feedback.md (from @zhangsan)
+  Pulled feedback.md (from #zhangsan)
 Done. Files saved to /Users/you/Downloads
 ```
 
@@ -92,8 +92,8 @@ This writes two entries into `~/.claude/settings.json`:
 
 ```
 Toss inbox: 2 pending
-  feedback.md from @zhangsan (3.4KB)
-  data.csv from @lisi (15KB)
+  feedback.md from #zhangsan (3.4KB)
+  data.csv from #lisi (15KB)
 ```
 
 **PostToolUse (Write/Edit)** — if you write a file inside a space directory, auto-syncs it to the shared space.

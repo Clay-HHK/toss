@@ -27,7 +27,7 @@ class DocumentClient:
 
         Args:
             file_path: Local file to push.
-            recipient: Alias or @github_username.
+            recipient: Alias or #github_username.
             message: Optional message to attach.
 
         Returns:
@@ -43,7 +43,7 @@ class DocumentClient:
         files = {
             "file": (file_path.name, content, content_type),
         }
-        data: dict[str, str] = {"recipient": recipient.lstrip("@")}
+        data: dict[str, str] = {"recipient": recipient.lstrip("#")}
         if message:
             data["message"] = message
 

@@ -25,7 +25,7 @@ cp -r skills/toss-push skills/toss-pull ~/.claude/skills/
 触发短语示例：
 
 - `"把 report.md 发给 xiaoming"`
-- `"push data.csv 和 notes.md 给 @zhangsan，附言：帮忙看看"`
+- `"push data.csv 和 notes.md 给 #zhangsan，附言：帮忙看看"`
 - `"send analysis.pdf to alice with a note saying check this"`
 
 Claude Code 解析出文件、收件人、附言后，验证文件存在，执行：
@@ -58,7 +58,7 @@ toss inbox
 ┏━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━┓
 ┃ File         ┃ From        ┃ Size ┃ Message       ┃ Time             ┃
 ┡━━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━┩
-│ feedback.md  │ @zhangsan   │ 3.4KB│ looks good    │ 2026-04-08 09:10 │
+│ feedback.md  │ #zhangsan   │ 3.4KB│ looks good    │ 2026-04-08 09:10 │
 └──────────────┴─────────────┴──────┴───────────────┴──────────────────┘
 ```
 
@@ -70,7 +70,7 @@ toss pull --to ~/Downloads
 
 ```
 Pulling 1 file(s)...
-  Pulled feedback.md (from @zhangsan)
+  Pulled feedback.md (from #zhangsan)
 Done. Files saved to /Users/you/Downloads
 ```
 
@@ -92,8 +92,8 @@ toss init --install-hooks
 
 ```
 Toss inbox: 2 pending
-  feedback.md from @zhangsan (3.4KB)
-  data.csv from @lisi (15KB)
+  feedback.md from #zhangsan (3.4KB)
+  data.csv from #lisi (15KB)
 ```
 
 **PostToolUse（Write/Edit）** — 写入共享空间目录中的文件时，自动同步到服务器。

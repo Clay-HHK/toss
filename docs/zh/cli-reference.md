@@ -101,8 +101,8 @@ Switched to profile lab
 ┏━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━┓
 ┃ File         ┃ From        ┃ Size ┃ Message         ┃ Time             ┃
 ┡━━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━┩
-│ report.md    │ @zhangsan   │ 2.1KB│ 帮忙看看        │ 2026-04-06 10:30 │
-│ data.csv     │ @lisi       │ 15KB │                 │ 2026-04-06 09:15 │
+│ report.md    │ #zhangsan   │ 2.1KB│ 帮忙看看        │ 2026-04-06 10:30 │
+│ data.csv     │ #lisi       │ 15KB │                 │ 2026-04-06 09:15 │
 └──────────────┴─────────────┴──────┴─────────────────┴──────────────────┘
 ```
 
@@ -116,8 +116,8 @@ Pushed report.md -> xiaoming (2.1KB)
 
 ```
 Pulling 2 file(s)...
-  Pulled report.md (from @zhangsan)
-  Pulled data.csv (from @lisi)
+  Pulled report.md (from #zhangsan)
+  Pulled data.csv (from #lisi)
 Done. Files saved to /Users/you/projects/mywork
 ```
 

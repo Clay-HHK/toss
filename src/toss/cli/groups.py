@@ -142,7 +142,7 @@ def members(slug: str) -> None:
     table.add_column("Role")
     for m in items:
         table.add_row(
-            f"@{m.get('github_username', '')}",
+            f"#{m.get('github_username', '')}",
             m.get("display_name") or "",
             m.get("role", "member"),
         )

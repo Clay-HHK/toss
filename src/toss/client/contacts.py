@@ -31,5 +31,5 @@ class ContactClient:
 
     def resolve(self, alias_or_username: str) -> dict[str, Any]:
         """Resolve an alias or @username to a user."""
-        name = alias_or_username.lstrip("@")
+        name = alias_or_username.lstrip("#")
         return self._client.get(f"/api/v1/contacts/resolve/{name}")

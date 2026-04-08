@@ -75,7 +75,7 @@ def list_spaces() -> None:
         table.add_row(
             s.get("slug", "?"),
             s.get("name", "?"),
-            f"@{s.get('owner_username', '?')}",
+            f"#{s.get('owner_username', '?')}",
             s.get("role", "?"),
             s.get("created_at", "")[:10],
         )
@@ -90,7 +90,7 @@ def add_member(slug: str, github_username: str) -> None:
     """Add a member to a space (owner only)."""
     try:
         sc = _get_space_client()
-        result = sc.add_member(slug, github_username.lstrip("@"))
+        result = sc.add_member(slug, github_username.lstrip("#"))
     except TossAPIError as e:
         console.print(f"[red]Error:[/red] {e.detail}")
         sys.exit(1)
