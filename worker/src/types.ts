@@ -9,11 +9,47 @@ export interface Env {
   JWT_SECRET: string;
   GITHUB_CLIENT_ID: string;
   GITHUB_CLIENT_SECRET: string;
+  /**
+   * T1-5: base64url-encoded 32-byte AES-GCM key used for envelope
+   * encryption of sensitive D1 text fields (currently `documents.message`).
+   * Optional at runtime — if unset, fieldcrypt logs a warning and stores
+   * plaintext so local dev stays unblocked. Provision in prod with
+   * `wrangler secret put D1_ENCRYPTION_KEY`.
+   */
+  D1_ENCRYPTION_KEY?: string;
+  /**
+   * Secret gating `POST /api/v1/admin/migrate/r2-keys`. The endpoint is
+   * disabled entirely when this is unset. Rotate or unset after migrations
+   * complete.
+   */
+  MIGRATION_SECRET?: string;
 }
 
 export interface JWTPayload {
   sub: string; // user id
   gh: string; // github username
+  iat: number;
+  exp: number;
+  /** T1-4: unique token id, used as the revocation-blacklist key in KV. */
+  jti?: string;
+  /** T1-4: client-supplied device id, recorded for audit / revoke flows. */
+  dev?: string;
+}
+
+/**
+ * T1-2: short-lived download ticket.
+ *
+ * Minted via `POST /api/v1/documents/inbox/:id/ticket` (or the space
+ * equivalent), redeemed once via `GET /api/v1/blobs/:ticket`. The ticket
+ * never authorises anything except the one resource it names, and it is
+ * HMAC-signed with the same JWT secret so no extra key material is needed.
+ */
+export interface DownloadTicketPayload {
+  typ: "dl"; // distinguishes tickets from auth tokens
+  sub: string; // user id who minted the ticket (for audit)
+  t: "doc" | "space"; // resource type
+  id: string; // documents.id or space_files.id
+  ip: string; // CF-Connecting-IP at mint time (for rebind check)
   iat: number;
   exp: number;
 }
@@ -43,6 +79,7 @@ export interface DocumentRow {
   r2_key: string;
   size_bytes: number;
   content_type: string;
+  content_sha256: string | null;
   message: string | null;
   status: string;
   created_at: string;

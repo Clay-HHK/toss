@@ -28,4 +28,15 @@ id = "<YOUR_KV_NAMESPACE_ID>"
 crons = ["0 3 * * *"]
 
 # Secrets (set via `wrangler secret put`):
-# - JWT_SECRET
+# - JWT_SECRET          — HMAC key for auth + download-ticket JWTs
+# - D1_ENCRYPTION_KEY   — (T1-5) base64url-encoded 32-byte key for envelope
+#                          encryption of sensitive D1 text fields. Generate:
+#                          openssl rand 32 | base64 | tr '+/' '-_' | tr -d '='
+#                          Optional in dev (field is stored plaintext with a warn log).
+# - MIGRATION_SECRET    — (T1-1) gate for POST /api/v1/admin/migrate/r2-keys.
+#                          Leave unset in steady state; set temporarily when running
+#                          a one-shot migration, then `wrangler secret delete` afterwards.
+#                          Example:
+#                          openssl rand -hex 32 | wrangler secret put MIGRATION_SECRET
+#                          curl -X POST https://<worker>/api/v1/admin/migrate/r2-keys?dry_run=1 \
+#                               -H "X-Migration-Secret: <secret>"

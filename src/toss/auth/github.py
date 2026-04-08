@@ -41,11 +41,15 @@ class GitHubAuth:
         self._api_base = api_base_url.rstrip("/")
         self._timeout = timeout
 
-    def authenticate_with_pat(self, pat: str) -> AuthResult:
+    def authenticate_with_pat(
+        self, pat: str, device_id: str | None = None
+    ) -> AuthResult:
         """Authenticate using a GitHub Personal Access Token.
 
         Args:
             pat: GitHub personal access token.
+            device_id: T1-4 device id sent to the server so the returned
+                JWT is stamped with `dev` for audit / revoke.
 
         Returns:
             AuthResult with JWT from the Toss server.
@@ -53,10 +57,13 @@ class GitHubAuth:
         Raises:
             AuthError: If authentication fails.
         """
+        body: dict[str, Any] = {"pat": pat}
+        if device_id:
+            body["device_id"] = device_id
         with httpx.Client(timeout=self._timeout) as client:
             resp = client.post(
                 f"{self._api_base}/api/v1/auth/pat",
-                json={"pat": pat},
+                json=body,
             )
             _check_response(resp)
             data = resp.json()
@@ -89,13 +96,21 @@ class GitHubAuth:
             interval=data["interval"],
         )
 
-    def poll_device_flow(self, device_code: str, interval: int, timeout: int) -> AuthResult:
+    def poll_device_flow(
+        self,
+        device_code: str,
+        interval: int,
+        timeout: int,
+        device_id: str | None = None,
+    ) -> AuthResult:
         """Poll the Toss server until the device flow completes.
 
         Args:
             device_code: From start_device_flow.
             interval: Seconds between polls.
             timeout: Maximum wait time in seconds.
+            device_id: T1-4 device id sent to the server on the successful
+                exchange so the returned JWT carries `dev`.
 
         Returns:
             AuthResult on success.
@@ -108,9 +123,12 @@ class GitHubAuth:
         with httpx.Client(timeout=self._timeout) as client:
             while time.monotonic() < deadline:
                 time.sleep(interval)
+                body: dict[str, Any] = {"device_code": device_code}
+                if device_id:
+                    body["device_id"] = device_id
                 resp = client.post(
                     f"{self._api_base}/api/v1/auth/github/token",
-                    json={"device_code": device_code},
+                    json=body,
                 )
 
                 if resp.status_code == 200:

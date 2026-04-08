@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from pathlib import Path
 from typing import Any
@@ -40,10 +41,17 @@ class DocumentClient:
         content = file_path.read_bytes()
         content_type = _guess_content_type(file_path.name)
 
+        # T1-3: compute SHA-256 on the client so the server can verify the
+        # upload round-trip and the recipient can verify the download.
+        content_sha256 = hashlib.sha256(content).hexdigest()
+
         files = {
             "file": (file_path.name, content, content_type),
         }
-        data: dict[str, str] = {"recipient": recipient.lstrip("#")}
+        data: dict[str, str] = {
+            "recipient": recipient.lstrip("#"),
+            "content_sha256": content_sha256,
+        }
         if message:
             data["message"] = message
 
@@ -71,8 +79,42 @@ class DocumentClient:
 
         Returns:
             Path to the downloaded file.
+
+        Raises:
+            TossAPIError: If the server-supplied SHA-256 header does not match
+                the downloaded bytes (integrity failure).
         """
-        resp = self._client.download(f"/api/v1/documents/inbox/{doc_id}/download")
+        # T1-2: prefer the two-phase ticket flow when the server advertises
+        # `download-ticket`. Fall back to the legacy direct-download route so
+        # this client still works against pre-T1-2 deployments.
+        if self._client.has_feature("download-ticket"):
+            try:
+                ticket_resp = self._client.post_json(
+                    f"/api/v1/documents/inbox/{doc_id}/ticket",
+                    {},
+                )
+                ticket_url = ticket_resp["url"]
+                resp = self._client.download(ticket_url)
+            except (TossAPIError, KeyError) as e:
+                logger.debug("Ticket mint failed (%s); falling back to /download", e)
+                resp = self._client.download(f"/api/v1/documents/inbox/{doc_id}/download")
+        else:
+            resp = self._client.download(f"/api/v1/documents/inbox/{doc_id}/download")
+
+        # T1-3: verify integrity against server-supplied SHA-256 before writing.
+        # Older servers omit the header; in that case we fall back silently.
+        expected = resp.headers.get("X-Content-SHA256")
+        content = resp.content
+        if expected:
+            actual = hashlib.sha256(content).hexdigest()
+            if actual != expected.lower():
+                raise TossAPIError(
+                    0,
+                    f"Content hash mismatch for document {doc_id}: "
+                    f"expected {expected}, got {actual}",
+                )
+        else:
+            logger.debug("No X-Content-SHA256 header for %s, skipping verification", doc_id)
 
         filename = _extract_filename(resp) or f"{doc_id}.bin"
         dest_path = dest_dir / filename
@@ -86,7 +128,7 @@ class DocumentClient:
                 dest_path = dest_dir / f"{stem}_{counter}{suffix}"
                 counter += 1
 
-        dest_path.write_bytes(resp.content)
+        dest_path.write_bytes(content)
         return dest_path
 
     def pull_all(self, dest_dir: Path) -> list[Path]:

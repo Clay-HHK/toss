@@ -27,12 +27,23 @@ class TossAPIError(Exception):
 class TossClient:
     """Synchronous HTTP client for the Toss Worker API."""
 
-    def __init__(self, server: ServerConfig, jwt: str) -> None:
+    def __init__(
+        self,
+        server: ServerConfig,
+        jwt: str,
+        device_id: str | None = None,
+    ) -> None:
         self._base_url = server.base_url.rstrip("/")
         self._timeout = server.timeout
         self._headers = {
             "Authorization": f"Bearer {jwt}",
         }
+        # T1-4: send the device id on every authenticated request so the
+        # server can correlate audit log lines with a specific device. The
+        # server already has the id embedded in the JWT payload — this
+        # header is purely for logging / rate-limit scoping.
+        if device_id:
+            self._headers["X-Toss-Device-Id"] = device_id
 
     @classmethod
     def from_config(cls, cm: ConfigManager) -> TossClient:
@@ -46,7 +57,19 @@ class TossClient:
         jwt = creds.get("jwt")
         if not jwt:
             raise TossAPIError(401, "Not logged in. Run `toss login` first.")
-        return cls(config.server, jwt)
+        # Device id is generated lazily the first time we build a client.
+        device_id = cm.load_or_create_device_id()
+        return cls(config.server, jwt, device_id=device_id)
+
+    def revoke_current_token(self) -> dict[str, Any]:
+        """T1-4: blacklist the JWT we were built with.
+
+        Returns the server payload so callers can surface whether the token
+        was actually revoked or was already invalid. Silent failure would be
+        a foot-gun here — if the server can't revoke, the caller should know
+        before wiping local credentials.
+        """
+        return self.post_json("/api/v1/auth/revoke", {})
 
     def get(self, path: str, params: dict[str, str] | None = None) -> Any:
         try:
@@ -60,13 +83,19 @@ class TossClient:
         except httpx.ConnectError as e:
             raise TossAPIError(0, _CONNECTION_ERROR_MSG) from e
 
-    def post_json(self, path: str, data: dict[str, Any]) -> Any:
+    def post_json(
+        self,
+        path: str,
+        data: dict[str, Any],
+        params: dict[str, str] | None = None,
+    ) -> Any:
         try:
             with httpx.Client(timeout=self._timeout) as client:
                 resp = client.post(
                     f"{self._base_url}{path}",
                     headers=self._headers,
                     json=data,
+                    params=params,
                 )
                 return _handle_response(resp)
         except httpx.ConnectError as e:
@@ -115,6 +144,41 @@ class TossClient:
                 return _handle_response(resp)
         except httpx.ConnectError as e:
             raise TossAPIError(0, _CONNECTION_ERROR_MSG) from e
+
+    # T1-7: capability probing.
+    # Clients call `fetch_features()` once and cache the result so callers can
+    # gracefully degrade against legacy servers (e.g. fall back to plaintext
+    # download when the server lacks `download-ticket`). The probe never
+    # raises — an unreachable or malformed server simply yields an empty set,
+    # which means "use the safest defaults you support".
+    _features_cache: frozenset[str] | None = None
+
+    def fetch_features(self, *, force: bool = False) -> frozenset[str]:
+        """Probe `/api/v1/health` and cache the advertised feature set.
+
+        Args:
+            force: Re-fetch even if a cached value exists.
+        """
+        if self._features_cache is not None and not force:
+            return self._features_cache
+        try:
+            with httpx.Client(timeout=self._timeout) as client:
+                resp = client.get(f"{self._base_url}/api/v1/health")
+            if resp.status_code != 200:
+                self._features_cache = frozenset()
+                return self._features_cache
+            payload = resp.json()
+            features = payload.get("features") or []
+            if not isinstance(features, list):
+                features = []
+            self._features_cache = frozenset(str(f) for f in features)
+        except (httpx.HTTPError, ValueError):
+            self._features_cache = frozenset()
+        return self._features_cache
+
+    def has_feature(self, name: str) -> bool:
+        """True if the server advertises `name` in its health payload."""
+        return name in self.fetch_features()
 
 
 def _handle_response(resp: httpx.Response) -> Any:

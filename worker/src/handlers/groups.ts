@@ -2,6 +2,7 @@
  * Group management handlers.
  */
 
+import { encryptField } from "../services/fieldcrypt";
 import { uploadToR2 } from "../services/storage";
 import type { Env, GroupRow } from "../types";
 
@@ -247,20 +248,38 @@ export async function handleGroupPush(
   const contentType = file.type || "application/octet-stream";
   const groupMsg = message ? `[${group.name}] ${message}` : `[${group.name}]`;
 
+  // T1-3: compute content SHA-256 once and write it to every recipient row.
+  const contentSha256 = await sha256Hex(fileBytes);
+  // T1-5: encrypt the group message once; the ciphertext is randomized per
+  // row is overkill here because every recipient gets the same prefix
+  // `[group]` — we reuse one ciphertext to keep the fan-out cheap.
+  const storedGroupMsg = await encryptField(groupMsg, env.D1_ENCRYPTION_KEY);
+
   const delivered: string[] = [];
 
   for (const member of members.results) {
     const docId = crypto.randomUUID();
-    const r2Key = `documents/inbox/${member.user_id}/${docId}/${file.name}`;
+    // T1-1: opaque R2 key per recipient row (no member id, no filename).
+    const r2Key = `blobs/${docId}`;
 
     await uploadToR2(env.TOSS_STORAGE, r2Key, fileBytes, contentType);
 
     await env.TOSS_DB
       .prepare(
-        `INSERT INTO documents (id, sender_id, recipient_id, filename, r2_key, size_bytes, content_type, message)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO documents (id, sender_id, recipient_id, filename, r2_key, size_bytes, content_type, content_sha256, message)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
-      .bind(docId, userId!, member.user_id, file.name, r2Key, fileBytes.byteLength, contentType, groupMsg)
+      .bind(
+        docId,
+        userId!,
+        member.user_id,
+        file.name,
+        r2Key,
+        fileBytes.byteLength,
+        contentType,
+        contentSha256,
+        storedGroupMsg,
+      )
       .run();
 
     delivered.push(member.user_id);
@@ -271,8 +290,16 @@ export async function handleGroupPush(
     group: group.name,
     delivered_count: delivered.length,
     size_bytes: fileBytes.byteLength,
+    content_sha256: contentSha256,
     status: "delivered",
   }, { status: 201 });
+}
+
+async function sha256Hex(bytes: ArrayBuffer): Promise<string> {
+  const hash = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(hash))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 async function verifyGroupMembership(

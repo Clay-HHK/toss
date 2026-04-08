@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS documents (
     r2_key TEXT NOT NULL,
     size_bytes INTEGER NOT NULL,
     content_type TEXT DEFAULT 'application/octet-stream',
+    content_sha256 TEXT,
     message TEXT,
     status TEXT NOT NULL DEFAULT 'pending',
     created_at TEXT NOT NULL DEFAULT (datetime('now')),

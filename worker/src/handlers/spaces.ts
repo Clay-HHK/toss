@@ -2,6 +2,7 @@
  * Shared Spaces handlers: create, list, add members, sync, upload, download.
  */
 
+import { getRequesterIp, signDownloadTicket } from "../middleware/auth";
 import { uploadToR2, downloadFromR2 } from "../services/storage";
 import type { Env, SpaceRow, SpaceFileRow } from "../types";
 
@@ -287,7 +288,6 @@ export async function handleUploadSpaceFile(
   }
 
   const fileBytes = await file.arrayBuffer();
-  const r2Key = `spaces/${space.id}/${filePath}`;
 
   // Compute content hash
   const hashBuffer = await crypto.subtle.digest("SHA-256", fileBytes);
@@ -295,19 +295,24 @@ export async function handleUploadSpaceFile(
     .map(b => b.toString(16).padStart(2, "0"))
     .join("");
 
-  // Upload to R2
+  // T1-1: opaque R2 key. Look up the existing row first so an upsert reuses
+  // its blob slot (overwriting in place) instead of orphaning the old blob.
+  // For brand-new files we mint a fresh UUID; for legacy rows whose r2_key
+  // still uses the old `spaces/<id>/<path>` format we keep that key on
+  // overwrite to avoid an extra rename round-trip.
+  const existing = await env.TOSS_DB
+    .prepare("SELECT id, version, r2_key FROM space_files WHERE space_id = ? AND path = ?")
+    .bind(space.id, filePath)
+    .first<{ id: string; version: number; r2_key: string }>();
+
+  const r2Key = existing?.r2_key ?? `blobs/space/${crypto.randomUUID()}`;
+
   await uploadToR2(
     env.TOSS_STORAGE,
     r2Key,
     fileBytes,
     file.type || "application/octet-stream",
   );
-
-  // Upsert space_files row
-  const existing = await env.TOSS_DB
-    .prepare("SELECT id, version FROM space_files WHERE space_id = ? AND path = ?")
-    .bind(space.id, filePath)
-    .first<{ id: string; version: number }>();
 
   if (existing) {
     await env.TOSS_DB
@@ -339,7 +344,63 @@ export async function handleUploadSpaceFile(
 }
 
 /**
+ * POST /api/v1/spaces/:slug/files/ticket?path=...
+ *
+ * T1-2: same design as document tickets, but resolved by (space, path).
+ * Membership is verified at mint time; the ticket then encodes the
+ * `space_files.id` so the blob handler only needs to stream R2.
+ */
+export async function handleMintSpaceFileTicket(
+  req: Request,
+  env: Env,
+  params: Record<string, string>,
+  userId?: string,
+): Promise<Response> {
+  const slug = params.slug;
+  const space = await verifySpaceMembership(env, slug, userId!);
+  if (!space) {
+    return Response.json({ error: "Space not found or access denied" }, { status: 404 });
+  }
+
+  const url = new URL(req.url);
+  const filePath = url.searchParams.get("path");
+  if (!filePath) {
+    return Response.json({ error: "path query parameter is required" }, { status: 400 });
+  }
+
+  const fileRow = await env.TOSS_DB
+    .prepare("SELECT id FROM space_files WHERE space_id = ? AND path = ?")
+    .bind(space.id, filePath)
+    .first<{ id: string }>();
+
+  if (!fileRow) {
+    return Response.json({ error: "File not found" }, { status: 404 });
+  }
+
+  const ip = getRequesterIp(req);
+  if (!ip) {
+    return Response.json(
+      { error: "Unable to determine requester IP for ticket binding" },
+      { status: 400 },
+    );
+  }
+
+  const { ticket, expiresIn } = await signDownloadTicket(
+    userId!,
+    { t: "space", id: fileRow.id },
+    ip,
+    env,
+  );
+
+  return Response.json({
+    url: `/api/v1/blobs/${ticket}`,
+    expires_in: expiresIn,
+  });
+}
+
+/**
  * GET /api/v1/spaces/:slug/files/download?path=...
+ * LEGACY fallback (see T1-2 note on the documents side).
  */
 export async function handleDownloadSpaceFile(
   req: Request,
@@ -377,11 +438,16 @@ export async function handleDownloadSpaceFile(
 
   const filename = filePath.split("/").pop() || "file";
 
-  return new Response(object.body, {
-    headers: {
-      "Content-Type": "application/octet-stream",
-      "Content-Disposition": `attachment; filename="${filename}"`,
-      "Content-Length": fileRow.size_bytes.toString(),
-    },
-  });
+  const headers: Record<string, string> = {
+    "Content-Type": "application/octet-stream",
+    "Content-Disposition": `attachment; filename="${filename}"`,
+    "Content-Length": fileRow.size_bytes.toString(),
+    "X-Deprecated": "Use POST /api/v1/spaces/:slug/files/ticket then GET /api/v1/blobs/:ticket",
+  };
+  // T1-3: expose server-computed SHA-256 so the client can verify integrity.
+  if (fileRow.content_hash) {
+    headers["X-Content-SHA256"] = fileRow.content_hash;
+  }
+
+  return new Response(object.body, { headers });
 }

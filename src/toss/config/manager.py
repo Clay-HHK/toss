@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +17,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_TOSS_DIR = "~/.toss"
 CONFIG_FILENAME = "config.yaml"
 CREDENTIALS_FILENAME = "credentials.yaml"
+DEVICE_ID_FILENAME = "device_id"
 DEFAULT_PROFILE = "default"
 
 
@@ -45,6 +47,7 @@ class ConfigManager:
         self.base_dir = Path(raw).expanduser()
         self._config_path = self.base_dir / CONFIG_FILENAME
         self._credentials_path = self.base_dir / CREDENTIALS_FILENAME
+        self._device_id_path = self.base_dir / DEVICE_ID_FILENAME
 
     # ------------------------------------------------------------------
     # Basic properties
@@ -233,6 +236,48 @@ class ConfigManager:
         self._write_yaml(self._credentials_path, data)
         self._credentials_path.chmod(0o600)
         logger.info("Credentials saved (profile=%s)", current)
+
+    def clear_credentials(self) -> None:
+        """Delete credentials for the current profile (used by `toss logout`)."""
+        if not self._credentials_path.exists():
+            return
+        data = self._read_yaml(self._credentials_path) or {}
+        current = self.current_profile_name
+        if current in data:
+            del data[current]
+            self._write_yaml(self._credentials_path, data)
+            self._credentials_path.chmod(0o600)
+            logger.info("Credentials cleared (profile=%s)", current)
+
+    # ------------------------------------------------------------------
+    # Device identity (T1-4)
+    # ------------------------------------------------------------------
+    # The device id is a stable UUID4 hex written once into
+    # ``~/.toss/device_id`` with 0600 permissions. It is sent on login so the
+    # server can stamp the JWT with `dev` (for audit) and it is sent on every
+    # authenticated request as `X-Toss-Device-Id`. Losing the file is
+    # harmless — a new one is generated on next read, and the previous JWT
+    # keeps working until its normal expiry or an explicit revoke.
+
+    def load_or_create_device_id(self) -> str:
+        """Return the device id, generating + persisting one if missing."""
+        if self._device_id_path.exists():
+            try:
+                existing = self._device_id_path.read_text(encoding="utf-8").strip()
+                if existing:
+                    return existing
+            except OSError as e:
+                logger.warning("Could not read device_id file: %s", e)
+
+        new_id = uuid.uuid4().hex
+        self.ensure_dirs()
+        self._device_id_path.write_text(new_id, encoding="utf-8")
+        try:
+            self._device_id_path.chmod(0o600)
+        except OSError:  # pragma: no cover — non-POSIX FS
+            pass
+        logger.info("Generated new device id at %s", self._device_id_path)
+        return new_id
 
     # ------------------------------------------------------------------
     # Migration helpers

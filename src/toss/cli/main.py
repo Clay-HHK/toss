@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import getpass
 import json
+import logging
 import sys
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 import click
 from rich.console import Console
@@ -142,7 +145,10 @@ def _login_pat(auth: GitHubAuth, store: TokenStore) -> None:
         sys.exit(1)
 
     try:
-        result = auth.authenticate_with_pat(token.strip())
+        # T1-4: bind the issued JWT to this device id so we can revoke it
+        # individually later via `toss logout`.
+        device_id = store._cm.load_or_create_device_id()
+        result = auth.authenticate_with_pat(token.strip(), device_id=device_id)
     except AuthError as e:
         console.print(f"[red]Login failed:[/red] {e}")
         sys.exit(1)
@@ -165,10 +171,12 @@ def _login_device_flow(auth: GitHubAuth, store: TokenStore) -> None:
 
     with console.status("Waiting for authorization..."):
         try:
+            device_id = store._cm.load_or_create_device_id()
             result = auth.poll_device_flow(
                 device.device_code,
                 device.interval,
                 device.expires_in,
+                device_id=device_id,
             )
         except AuthError as e:
             console.print(f"[red]Login failed:[/red] {e}")
@@ -209,7 +217,7 @@ def whoami() -> None:
 
 @main.command()
 def logout() -> None:
-    """Remove stored credentials for the current profile."""
+    """Revoke the current token on the server, then clear local credentials."""
     cm = _get_config_manager()
     store = TokenStore(cm)
 
@@ -218,6 +226,19 @@ def logout() -> None:
         return
 
     username = store.github_username
+
+    # T1-4: best-effort server-side revoke before wiping local creds. If the
+    # server is unreachable, the blacklist entry will be missing but the
+    # token is already useless because we're deleting it from the client.
+    try:
+        client = TossClient.from_config(cm)
+        client.revoke_current_token()
+    except TossAPIError as e:
+        console.print(f"[yellow]Could not revoke token on server:[/yellow] {e}")
+        console.print("Continuing with local logout.")
+    except Exception as e:  # pragma: no cover — network / env noise
+        logger.debug("Revoke failed during logout: %s", e)
+
     store.clear()
     console.print(f"[green]Logged out[/green] ({username})")
 

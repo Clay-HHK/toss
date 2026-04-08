@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from pathlib import Path
 from typing import Any
 
-from .base import TossClient
+from .base import TossAPIError, TossClient
 
 logger = logging.getLogger(__name__)
 
@@ -107,15 +108,52 @@ class SpaceClient:
 
         Returns:
             Path to the downloaded file.
+
+        Raises:
+            TossAPIError: If the server-supplied SHA-256 header does not match
+                the downloaded bytes (integrity failure).
         """
-        resp = self._client.download(
-            f"/api/v1/spaces/{slug}/files/download",
-            params={"path": path},
-        )
+        # T1-2: prefer the short-lived ticket flow. Legacy fallback keeps us
+        # working against pre-T1-2 servers.
+        if self._client.has_feature("download-ticket"):
+            try:
+                ticket_resp = self._client.post_json(
+                    f"/api/v1/spaces/{slug}/files/ticket",
+                    {},
+                    params={"path": path},
+                )
+                resp = self._client.download(ticket_resp["url"])
+            except (TossAPIError, KeyError) as e:
+                logger.debug(
+                    "Space ticket mint failed (%s); falling back to /download", e
+                )
+                resp = self._client.download(
+                    f"/api/v1/spaces/{slug}/files/download",
+                    params={"path": path},
+                )
+        else:
+            resp = self._client.download(
+                f"/api/v1/spaces/{slug}/files/download",
+                params={"path": path},
+            )
+
+        # T1-3: verify integrity against server-supplied SHA-256 before writing.
+        expected = resp.headers.get("X-Content-SHA256")
+        content = resp.content
+        if expected:
+            actual = hashlib.sha256(content).hexdigest()
+            if actual != expected.lower():
+                raise TossAPIError(
+                    0,
+                    f"Content hash mismatch for {slug}:{path}: "
+                    f"expected {expected}, got {actual}",
+                )
+        else:
+            logger.debug("No X-Content-SHA256 header for %s, skipping verification", path)
 
         # Reconstruct local path from the space-relative path
         dest_path = dest_dir / path
         dest_path.parent.mkdir(parents=True, exist_ok=True)
-        dest_path.write_bytes(resp.content)
+        dest_path.write_bytes(content)
         logger.info("Downloaded %s -> %s", path, dest_path)
         return dest_path
