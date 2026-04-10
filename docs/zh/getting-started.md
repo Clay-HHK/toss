@@ -26,7 +26,20 @@ uv tool install git+https://github.com/Clay-HHK/toss.git
 toss --version
 ```
 
-**方式 C — 从源码安装**
+**方式 C — Docker（全平台）**
+
+```bash
+docker pull ghcr.io/clay-hhk/toss:latest
+
+# 添加别名方便使用（写入 ~/.bashrc 或 ~/.zshrc）
+alias toss='docker run --rm -v ~/.toss:/root/.toss -v $(pwd):/work ghcr.io/clay-hhk/toss:latest'
+
+toss --version
+```
+
+Windows、Linux、macOS 都能用，不需要装 Python 或 Node.js。
+
+**方式 D — 从源码安装**
 
 ```bash
 git clone https://github.com/Clay-HHK/toss.git

@@ -9,14 +9,32 @@ Toss requires a backend server. The backend is a Cloudflare Worker — it runs o
 
 ---
 
-## Prerequisites
+## One-Click Deploy (recommended)
 
-- A [Cloudflare account](https://dash.cloudflare.com/sign-up) (free)
-- Node.js 18+
+Prerequisites: Node.js 18+ and a [Cloudflare account](https://dash.cloudflare.com/sign-up) (free).
+
+```bash
+git clone https://github.com/Clay-HHK/toss.git
+cd toss/worker
+bash deploy.sh
+```
+
+The script handles everything automatically:
+1. Install npm dependencies
+2. Login to Cloudflare (opens browser)
+3. Create D1 database, R2 bucket, KV namespace
+4. Write resource IDs into `wrangler.toml`
+5. Apply database schema
+6. Generate and set JWT secret
+7. Deploy the Worker
+
+When finished, the script prints your server URL and next steps.
 
 ---
 
-## Deploy in 5 Minutes
+## Manual Deploy
+
+If you prefer to do each step yourself:
 
 ```bash
 cd worker

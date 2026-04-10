@@ -112,17 +112,38 @@ Multiple people maintain a set of files, synced to everyone on change. Like a li
 
 ## Quick Start
 
-If you received an invite code from your team:
+### Install the CLI
 
 ```bash
-# No Python needed
-npx toss-cli join toss-api.example.workers.dev/ABCD-1234
+# Option A: npm (no Python needed)
+npm install -g toss-cli
 
-# Or with uv
-uvx --from git+https://github.com/Clay-HHK/toss.git toss join toss-api.example.workers.dev/ABCD-1234
+# Option B: uv
+uv tool install git+https://github.com/Clay-HHK/toss.git
+
+# Option C: Docker (any platform, no Python/Node needed)
+docker pull ghcr.io/clay-hhk/toss:latest
+alias toss='docker run --rm -v ~/.toss:/root/.toss -v $(pwd):/work ghcr.io/clay-hhk/toss:latest'
+```
+
+### Join a team
+
+If you received an invite code:
+
+```bash
+toss join toss-api.example.workers.dev/ABCD-1234
 ```
 
 One command — configures server, logs you in, joins the group.
+
+### Deploy your own server
+
+```bash
+git clone https://github.com/Clay-HHK/toss.git
+cd toss/worker && bash deploy.sh
+```
+
+One script — creates all Cloudflare resources, deploys the Worker, prints your server URL. See [Self-Hosting](docs/self-hosting.md) for details.
 
 > **Mainland China**: `workers.dev` may need a proxy. Run `export https_proxy=http://127.0.0.1:7890` first.
 

@@ -9,14 +9,32 @@ Toss 需要一个后端服务器。后端是 Cloudflare Worker，运行在 Cloud
 
 ---
 
-## 前置条件
+## 一键部署（推荐）
 
-- [Cloudflare 账号](https://dash.cloudflare.com/sign-up)（免费注册）
-- Node.js 18+
+前置条件：Node.js 18+ 和一个 [Cloudflare 账号](https://dash.cloudflare.com/sign-up)（免费注册）。
+
+```bash
+git clone https://github.com/Clay-HHK/toss.git
+cd toss/worker
+bash deploy.sh
+```
+
+脚本自动完成所有步骤：
+1. 安装 npm 依赖
+2. 登录 Cloudflare（会打开浏览器）
+3. 创建 D1 数据库、R2 存储桶、KV 命名空间
+4. 将资源 ID 写入 `wrangler.toml`
+5. 执行数据库 schema
+6. 生成并设置 JWT 密钥
+7. 部署 Worker
+
+完成后脚本会打印你的服务器 URL 和后续步骤。
 
 ---
 
-## 5 分钟完成部署
+## 手动部署
+
+如果你更喜欢一步步手动操作：
 
 ```bash
 cd worker

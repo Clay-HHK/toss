@@ -1,0 +1,16 @@
+.git
+.gitignore
+.env
+*.md
+docs/
+worker/
+npm/
+hooks/
+skills/
+tests/
+.mcp.json
+.claude/
+__pycache__/
+*.pyc
+.ruff_cache/
+.mypy_cache/
